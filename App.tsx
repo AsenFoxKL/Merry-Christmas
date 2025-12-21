@@ -4,7 +4,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Environment, PerspectiveCamera, Stars } from '@react-three/drei';
 import { EffectComposer, Bloom, Vignette }
   from '@react-three/postprocessing';
-import * as THREE from 'three';
+  import * as THREE from 'three';
 import TreeParticles from './components/TreeParticles';
 import Star from './components/Star';
 import GoldDust from './components/GoldDust';
@@ -15,17 +15,16 @@ import HandController from './components/HandController';
 import Overlay from './components/Overlay';
 import { generateTreeData } from './utils';
 import { ParticleData, ParticleType } from './types';
-import { Vector2 } from 'three';
 
 const AmbientLight = 'ambientLight' as any;
 const PointLight = 'pointLight' as any;
 const SpotLight = 'spotLight' as any;
 
-const CameraController: React.FC<{
-  orbitRef: React.MutableRefObject<any>,
+const CameraController: React.FC<{ 
+  orbitRef: React.MutableRefObject<any>, 
   rotVel: React.MutableRefObject<number>,
   zoomVel: React.MutableRefObject<number>,
-  autoRotate: boolean
+  autoRotate: boolean 
 }> = ({ orbitRef, rotVel, zoomVel, autoRotate }) => {
   useFrame(() => {
     const controls = orbitRef.current;
@@ -38,7 +37,7 @@ const CameraController: React.FC<{
         const angle = controls.getAzimuthalAngle();
         controls.setAzimuthalAngle(angle + rotVel.current);
       }
-      rotVel.current *= 0.95;
+      rotVel.current *= 0.95; 
     }
 
     if (Math.abs(zoomVel.current) > 0.0001) {
@@ -56,8 +55,8 @@ const CameraController: React.FC<{
   return null;
 };
 
-const GestureRaycaster: React.FC<{
-  pointerPos: { x: number, y: number } | null,
+const GestureRaycaster: React.FC<{ 
+  pointerPos: { x: number, y: number } | null, 
   onPinchStart: (targetId: number | null) => void,
   onPinchEnd: () => void
 }> = ({ pointerPos, onPinchStart, onPinchEnd }) => {
@@ -69,13 +68,58 @@ const GestureRaycaster: React.FC<{
       currentHoverRef.current = null;
       return;
     }
-    const x = (pointerPos.x * 2) - 1;
-    const y = -(pointerPos.y * 2) + 1;
-    const mouse = new Vector2(x, y);
-    raycaster.setFromCamera(mouse, camera);
+    
+    const ndcX = (pointerPos.x * 2) - 1;
+    const ndcY = -(pointerPos.y * 2) + 1;
+    const pointerNDC = new THREE.Vector2(ndcX, ndcY);
+    
+    // 1. 设置射线检测
+    raycaster.setFromCamera(pointerNDC, camera);
     const intersects = raycaster.intersectObjects(scene.children, true);
-    const photoIntersect = intersects.find(obj => (obj.object as any).isInstancedMesh && (obj.object as any).name === 'PHOTO_MESH');
-    currentHoverRef.current = photoIntersect ? photoIntersect.instanceId! : null;
+    
+    // 优先尝试直接命中
+    const photoIntersect = intersects.find(obj => obj.object.name === 'PHOTO_MESH');
+    
+    if (photoIntersect) {
+      let parent = photoIntersect.object.parent;
+      while (parent && parent.name !== 'PHOTO_MESH_WRAPPER') {
+        parent = parent.parent;
+      }
+      if (parent && parent.userData.id !== undefined) {
+        currentHoverRef.current = parent.userData.id;
+        return;
+      }
+    }
+
+    // 2. 如果没有直接命中，计算 NDC 空间中最近的物体
+    let nearestId = null;
+    let minDistanceSq = Infinity;
+    const SNAP_THRESHOLD_SQ = 0.15; // 约屏宽的 38%
+
+    scene.traverse((child) => {
+      if (child.name === 'PHOTO_MESH_WRAPPER' && child.userData.id !== undefined) {
+        // 强制更新世界矩阵以获取最新坐标
+        child.updateWorldMatrix(true, false);
+        const worldPos = new THREE.Vector3();
+        child.getWorldPosition(worldPos);
+        
+        // 投影到 NDC
+        const screenPos = worldPos.project(camera);
+        const distSq = pointerNDC.distanceToSquared(new THREE.Vector2(screenPos.x, screenPos.y));
+        
+        // 只考虑在相机前方的物体 (z < 1)
+        if (screenPos.z < 1 && distSq < minDistanceSq) {
+          minDistanceSq = distSq;
+          nearestId = child.userData.id;
+        }
+      }
+    });
+
+    if (nearestId !== null && minDistanceSq < SNAP_THRESHOLD_SQ) {
+      currentHoverRef.current = nearestId;
+    } else {
+      currentHoverRef.current = null;
+    }
   });
 
   useEffect(() => {
@@ -109,11 +153,11 @@ const VisualCursor: React.FC<{ active: boolean, pos: { x: number, y: number } | 
   if (!active || !pos) return null;
 
   return (
-    <div
-      className={`fixed rounded-full pointer-events-none z-[60] -translate-x-1/2 -translate-y-1/2 transition-all duration-75 border-2 ${isPinching ? 'w-5 h-5 border-red-400 bg-red-400/40 shadow-[0_0_20px_rgba(239,68,68,0.5)]' : 'w-8 h-8 border-pink-400 bg-transparent'}`}
+    <div 
+      className={`fixed rounded-full pointer-events-none z-[60] -translate-x-1/2 -translate-y-1/2 transition-all duration-100 border-2 ${isPinching ? 'w-4 h-4 border-red-400 bg-red-400/60 shadow-[0_0_20px_rgba(239,68,68,0.8)]' : 'w-8 h-8 border-yellow-400 bg-yellow-400/10'}`}
       style={{ left: `${pos.x * 100}%`, top: `${pos.y * 100}%` }}
     >
-      {!isPinching && <div className="absolute inset-0 bg-pink-400/20 rounded-full animate-ping" />}
+      {!isPinching && <div className="absolute inset-0 bg-yellow-400/20 rounded-full animate-ping" />}
     </div>
   );
 };
@@ -124,22 +168,18 @@ const App: React.FC = () => {
   const [name, setName] = useState('My Dear');
   const [pointerPos, setPointerPos] = useState<{ x: number, y: number } | null>(null);
   const [isPointerActive, setIsPointerActive] = useState(false);
-
-  // 使用 state 管理树数据，以便动态更新照片
+  
   const [treeData, setTreeData] = useState<ParticleData[]>(() => generateTreeData(2500));
-
+  
   const orbitRef = useRef<any>(null);
   const rotVel = useRef<number>(0);
   const zoomVel = useRef<number>(0);
-
-  const photoMap = useMemo(() => treeData.filter(d => d.type === ParticleType.PHOTO), [treeData]);
 
   const handleUploadMemories = useCallback((files: FileList) => {
     const newUrls = Array.from(files).map(file => URL.createObjectURL(file));
     setTreeData(prev => {
       const newData = [...prev];
       let urlIdx = 0;
-      // 遍历所有照片类型的粒子，循环填充上传的新图片
       newData.forEach((p, i) => {
         if (p.type === ParticleType.PHOTO && newUrls.length > 0) {
           newData[i] = { ...p, textureUrl: newUrls[urlIdx % newUrls.length] };
@@ -153,27 +193,23 @@ const App: React.FC = () => {
   const handleHandMove = useCallback((dx: number, dy: number) => {
     if (!selectedPhoto) {
       rotVel.current += dx * -1.8;
-      zoomVel.current += dy * 0.35;
+      zoomVel.current += dy * 0.35; 
     }
   }, [selectedPhoto]);
 
   const handlePointerMove = useCallback((x: number, y: number) => setPointerPos({ x, y }), []);
   const handlePointerToggle = useCallback((active: boolean) => setIsPointerActive(active), []);
 
-  const handlePinchStart = useCallback((instanceId: number | null) => {
-    let target = null;
-    if (instanceId !== null) {
-      target = photoMap[instanceId];
-    } else {
-      target = photoMap[Math.floor(Math.random() * photoMap.length)];
+  const handlePinchStart = useCallback((targetId: number | null) => {
+    if (targetId !== null) {
+      const target = treeData.find(d => d.id === targetId);
+      if (target && target.type === ParticleType.PHOTO) {
+        setSelectedPhoto(target);
+        rotVel.current = 0;
+        zoomVel.current = 0;
+      }
     }
-
-    if (target) {
-      setSelectedPhoto(target);
-      rotVel.current = 0;
-      zoomVel.current = 0;
-    }
-  }, [photoMap]);
+  }, [treeData]);
 
   const handlePinchEnd = useCallback(() => {
     setSelectedPhoto(null);
@@ -184,36 +220,36 @@ const App: React.FC = () => {
       <Canvas shadows dpr={[1, 1.5]} gl={{ powerPreference: "high-performance", antialias: false }}>
         <Suspense fallback={null}>
           <PerspectiveCamera makeDefault position={[0, 8, 30]} fov={45} />
-          <OrbitControls
+          <OrbitControls 
             ref={orbitRef}
             enabled={!selectedPhoto}
-            enablePan={false}
-            minDistance={8}
-            maxDistance={80}
+            enablePan={false} 
+            minDistance={8} 
+            maxDistance={80} 
             target={[0, 7.5, 0]}
             autoRotateSpeed={0.5}
             enableDamping={true}
           />
 
           <CameraController orbitRef={orbitRef} rotVel={rotVel} zoomVel={zoomVel} autoRotate={!isExploded && !selectedPhoto} />
-          <GestureRaycaster
-            pointerPos={isPointerActive ? pointerPos : null}
+          <GestureRaycaster 
+            pointerPos={isPointerActive ? pointerPos : null} 
             onPinchStart={handlePinchStart}
             onPinchEnd={handlePinchEnd}
           />
-
+          
           <Environment preset="lobby" />
           <Stars radius={120} depth={60} count={3000} factor={4} fade speed={1.2} />
           <AmbientLight intensity={0.2} />
           <SpotLight position={[0, 40, 0]} angle={0.3} penumbra={1} intensity={2.5} color="#fff4e0" castShadow />
 
-          <TreeParticles
-            data={treeData}
-            isExploded={isExploded}
+          <TreeParticles 
+            data={treeData} 
+            isExploded={isExploded} 
             onSelectPhoto={setSelectedPhoto}
             focusedPhotoId={selectedPhoto?.id || null}
           />
-
+          
           {selectedPhoto && <FocusPhoto photo={selectedPhoto} onClose={() => setSelectedPhoto(null)} />}
 
           <GoldDust isExploded={isExploded} />
@@ -221,32 +257,31 @@ const App: React.FC = () => {
           <Star position={[0, 15.5, 0]} />
           <Atmosphere />
 
-          <EffectComposer enableNormalPass={false} multisampling={0}>
+          <EffectComposer enableNormalPass multisampling={0}>
             <Bloom luminanceThreshold={1.2} mipmapBlur intensity={0.4} radius={0.3} />
             <Vignette eskil={false} offset={0.2} darkness={0.9} />
           </EffectComposer>
-
         </Suspense>
       </Canvas>
 
       <VisualCursor active={isPointerActive} pos={pointerPos} />
 
-      <HandController
+      <HandController 
         enabled={true}
         onSpread={() => setIsExploded(true)}
         onFist={() => setIsExploded(false)}
         onMove={handleHandMove}
         onPointerMove={handlePointerMove}
         onPointerToggle={handlePointerToggle}
-        onPinchStart={() => { }}
-        onPinchEnd={() => { }}
+        onPinchStart={() => {}} 
+        onPinchEnd={() => {}} 
       />
 
-      <Overlay
-        isExploded={isExploded}
-        onExplode={() => setIsExploded(!isExploded)}
-        name={name}
-        setName={setName}
+      <Overlay 
+        isExploded={isExploded} 
+        onExplode={() => setIsExploded(!isExploded)} 
+        name={name} 
+        setName={setName} 
         onUpload={handleUploadMemories}
       />
     </div>
