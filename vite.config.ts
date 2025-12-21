@@ -1,8 +1,8 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  // 必须配置 base，否则 GitHub Pages 的路径会错
-  base: '/particle-christmas-tree/', 
+  // 使用相对路径作为 base，这样部署到 GitHub Pages 时更稳健
+  base: './',
   build: {
     outDir: 'dist',
   }
