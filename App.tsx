@@ -2,7 +2,8 @@
 import React, { useState, useMemo, Suspense, useRef, useCallback, useEffect } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Environment, PerspectiveCamera, Stars } from '@react-three/drei';
-import { EffectComposer, Bloom, Vignette } from 'https://esm.sh/@react-three/postprocessing';
+import { EffectComposer, Bloom, Vignette } 
+from '@react-three/postprocessing';
 import * as THREE from 'three';
 import TreeParticles from './components/TreeParticles';
 import Star from './components/Star';
@@ -14,6 +15,7 @@ import HandController from './components/HandController';
 import Overlay from './components/Overlay';
 import { generateTreeData } from './utils';
 import { ParticleData, ParticleType } from './types';
+import { Vector2 } from 'three';
 
 const AmbientLight = 'ambientLight' as any;
 const PointLight = 'pointLight' as any;
@@ -69,7 +71,8 @@ const GestureRaycaster: React.FC<{
     }
     const x = (pointerPos.x * 2) - 1;
     const y = -(pointerPos.y * 2) + 1;
-    raycaster.setFromCamera({ x, y }, camera);
+    const mouse = new Vector2(x, y);
+    raycaster.setFromCamera(mouse, camera);
     const intersects = raycaster.intersectObjects(scene.children, true);
     const photoIntersect = intersects.find(obj => (obj.object as any).isInstancedMesh && (obj.object as any).name === 'PHOTO_MESH');
     currentHoverRef.current = photoIntersect ? photoIntersect.instanceId! : null;
@@ -218,10 +221,11 @@ const App: React.FC = () => {
           <Star position={[0, 15.5, 0]} />
           <Atmosphere />
 
-          <EffectComposer disableNormalPass multisampling={0}>
+          <EffectComposer enableNormalPass={false} multisampling={0}>
             <Bloom luminanceThreshold={1.2} mipmapBlur intensity={0.4} radius={0.3} />
             <Vignette eskil={false} offset={0.2} darkness={0.9} />
           </EffectComposer>
+
         </Suspense>
       </Canvas>
 

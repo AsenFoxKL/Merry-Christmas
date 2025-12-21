@@ -1,7 +1,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
-import { FilesetResolver, HandLandmarker } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0';
-
+import { FilesetResolver, HandLandmarker } 
+from '@mediapipe/tasks-vision';
 let globalHandLandmarker: any = null;
 let globalVision: any = null;
 
