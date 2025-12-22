@@ -70,7 +70,7 @@ export const useAudioManager = (tracks: Track[], autoPlayOnMount = true) => {
       handleNext();
     };
 
-    // 播放错误处理 - 带自动重试
+    // 播放错误处理
     const onError = () => {
       setHasError(true);
       setIsLoading(false);
@@ -83,9 +83,7 @@ export const useAudioManager = (tracks: Track[], autoPlayOnMount = true) => {
             if (audioRef.current && userInteractedRef.current) {
               audio.play().catch(() => {});
             }
-          }, 1000 * (retryCount + 1)); // 指数退避
-        } else {
-          handleNext();
+          }, 1000 * (retryCount + 1));
         }
       }
     };
@@ -146,7 +144,7 @@ export const useAudioManager = (tracks: Track[], autoPlayOnMount = true) => {
 
       audioRef.current.src = track.url;
       
-      // 只有在用户交互后或明确调用 play 时才播放
+      // 立即尝试播放
       const attemptPlay = () => {
         if (!audioRef.current) return;
         
@@ -158,28 +156,25 @@ export const useAudioManager = (tracks: Track[], autoPlayOnMount = true) => {
               isPlaying: true,
               currentTrackId: trackId,
             }));
+            setHasError(false);
           })
           .catch((err: Error) => {
             console.log('Play failed:', err.name);
-            // NotAllowedError 是自动播放被拦截，这是正常的
+            // NotAllowedError 是自动播放被拦截，这时等待用户交互
             if (err.name === 'NotAllowedError') {
-              // 等待用户交互后再试
+              console.log('Autoplay blocked, waiting for user interaction');
               setHasError(false);
               return;
             }
             // 其他错误（文件不存在、格式不支持等）
+            console.error('Audio error:', err);
             setHasError(true);
             setIsLoading(false);
           });
       };
 
-      // 检查是否已获得用户交互
-      if (userInteractedRef.current) {
-        attemptPlay();
-      } else {
-        // 如果还没有用户交互，延迟尝试
-        setTimeout(attemptPlay, 100);
-      }
+      // 立即尝试播放
+      attemptPlay();
     },
     [playlist]
   );
@@ -285,15 +280,15 @@ export const useAudioManager = (tracks: Track[], autoPlayOnMount = true) => {
 
   // 自动播放初始化
   useEffect(() => {
-    if (autoPlayOnMount && playlist.length > 0 && !state.currentTrackId) {
+    if (autoPlayOnMount && playlist.length > 0 && state.currentTrackId === null) {
       // 延迟播放以避免浏览器自动播放政策
-      // 同时等待用户交互
       const timer = setTimeout(() => {
+        console.log('Starting autoplay of first track:', playlist[0].name);
         play(playlist[0].id);
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [autoPlayOnMount, playlist, state.currentTrackId, play]);
+  }, [autoPlayOnMount, playlist.length, state.currentTrackId]);
 
   return {
     state,

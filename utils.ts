@@ -4,6 +4,44 @@ import { ParticleType, ParticleData } from './types';
 
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 
+/**
+ * 动态加载音乐文件
+ * 使用 import.meta.glob 自动检测 public/music/ 中的所有音乐文件
+ * 按照指定顺序排序，确保循环播放时顺序一致
+ */
+export const generateMusicTracks = () => {
+  const musicModules = import.meta.glob<string>('/music/*.{mp3,wav,ogg,m4a}', { query: '?url', import: 'default' });
+  const musicFilenames = Object.keys(musicModules)
+    .map(path => path.split('/').pop() || '')
+    .filter(Boolean);
+
+  // 定义期望的播放顺序
+  const preferredOrder = ['Saccharin', 'Not Going Home', "We Don't Talk Anymore"];
+  
+  // 按照首选顺序排序
+  musicFilenames.sort((a, b) => {
+    const aName = a.replace(/\.[^/.]+$/, '');
+    const bName = b.replace(/\.[^/.]+$/, '');
+    
+    const aIndex = preferredOrder.findIndex(name => aName.includes(name));
+    const bIndex = preferredOrder.findIndex(name => bName.includes(name));
+    
+    // 如果都在首选列表中，按首选顺序排序
+    if (aIndex !== -1 && bIndex !== -1) {
+      return aIndex - bIndex;
+    }
+    
+    // 其他文件按名称排序
+    return a.localeCompare(b);
+  });
+
+  return musicFilenames.map((filename, index) => ({
+    id: index + 1,
+    name: filename.replace(/\.[^/.]+$/, ''), // 移除扩展名作为名称
+    url: `/music/${filename}`,
+  }));
+};
+
 export const generateTreeData = (count: number): ParticleData[] => {
   const data: ParticleData[] = [];
   const height = 15;
