@@ -4,26 +4,43 @@ import { ParticleType, ParticleData } from './types';
 
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 
+// 1. 像处理图片一样，导入 music 文件夹下所有的 mp3
+// 注意：路径 ./music/*.mp3 是相对于当前代码文件的位置
+const musicModules = import.meta.glob<{ default: string }>('./music/*.mp3', { eager: true });
+
 /**
- * 生成音乐列表
- * 音乐文件在 ./music 文件夹中
+ * 辅助函数：根据文件名查找构建后的真实 URL
  */
+const getMusicUrl = (fileName: string) => {
+  // 拼接完整的相对路径作为 Key
+  const key = `./music/${fileName}`;
+  const module = musicModules[key];
+
+  if (!module) {
+    console.error(`未找到音乐文件: ${fileName}，请检查文件名拼写`);
+    return '';
+  }
+  
+  return module.default;
+};
+
 export const generateMusicTracks = () => {
   return [
     {
       id: 1,
       name: 'Saccharin',
-      url: '/music/Saccharin.mp3',
+      // 2. 这里不再写死路径，而是通过文件名去“查”路径
+      url: getMusicUrl('Saccharin.mp3'),
     },
     {
       id: 2,
       name: 'Not Going Home',
-      url: '/music/Not Going Home.mp3',
+      url: getMusicUrl('Not Going Home.mp3'),
     },
     {
       id: 3,
       name: "We Don't Talk Anymore",
-      url: "/music/We Don't Talk Anymore.mp3",
+      url: getMusicUrl("We Don't Talk Anymore.mp3"),
     },
   ];
 };
@@ -40,11 +57,16 @@ export const generateTreeData = (count: number): ParticleData[] => {
    * 3. 如果图片无法加载，应用不会崩溃（有错误处理保护）
    * 4. 新增图片无需修改代码，只需上传到 memories/ 文件夹即可
    */
-  const photoModules = import.meta.glob<{ default: string }>('./memories/*.{jpg,jpeg,png,gif}');
-  const photoUrls = Object.entries(photoModules).map(([path, mod]) => {
-    // 直接返回导入的 URL
-    return path; // glob 返回的路径会被 vite 正确处理
-  });
+// 1. 在 glob 后面加上尖括号定义类型
+const photoModules = import.meta.glob<{ default: string }>(
+  './memories/*.{jpg,jpeg,png,gif}', 
+  { eager: true }
+);
+
+const photoUrls = Object.values(photoModules).map((mod) => {
+  // 2. 现在 TypeScript 知道 mod 里面一定有 default 了
+  return mod.default; 
+});
 
   for (let i = 0; i < count; i++) {
     const t = i / count;
