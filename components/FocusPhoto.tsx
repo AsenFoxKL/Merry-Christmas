@@ -20,12 +20,16 @@ const FocusPhoto: React.FC<FocusPhotoProps> = ({ photo, onClose }) => {
   const groupRef = useRef<THREE.Group>(null);
   const [loadError, setLoadError] = useState(false);
   
+  // Use direct URL for local images (will be in public/ = memories/)
+  // Fallback to online placeholder if image fails to load
+  const imageUrl = photo.textureUrl ? photo.textureUrl : 'https://picsum.photos/400/400';
+  
   const texture = useLoader(
     THREE.TextureLoader, 
-    photo.textureUrl || 'https://picsum.photos/400/400',
+    imageUrl,
     undefined,
     (error) => {
-      console.warn("Texture load failed, using fallback.", error);
+      console.warn(`Failed to load image: ${imageUrl}`, error);
       setLoadError(true);
     }
   );

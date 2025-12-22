@@ -1,0 +1,7 @@
+/* Minimal placeholder stylesheet to avoid build/runtime 404 */
+html, body, #root {
+  height: 100%;
+}
+
+/* keep body background consistent with inline style */
+body { background-color: #111; margin: 0; }

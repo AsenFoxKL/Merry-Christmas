@@ -31,11 +31,18 @@ const PhotoParticle: React.FC<PhotoParticleProps> = ({ data, isExploded, onSelec
   const currentPos = useRef(data.treePos.clone());
   const [loadError, setLoadError] = useState(false);
   
+  // Use direct URL for local images (will be in public/ = memories/)
+  // Fallback to online placeholder if image fails to load
+  const imageUrl = data.textureUrl ? data.textureUrl : 'https://picsum.photos/200/200';
+  
   const texture = useLoader(
     THREE.TextureLoader, 
-    data.textureUrl || 'https://picsum.photos/200/200',
+    imageUrl,
     undefined,
-    () => setLoadError(true)
+    (error) => {
+      console.warn(`Failed to load image: ${imageUrl}`, error);
+      setLoadError(true);
+    }
   );
 
   // 计算长宽比以适应 0.4x0.55 的展示窗口

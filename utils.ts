@@ -11,33 +11,32 @@ export const generateTreeData = (count: number): ParticleData[] => {
 
   /**
    * 图片预置说明：
-   * 1. 预览阶段：我们使用 picsum.photos 的网络图片确保应用不崩溃。
-   * 2. 部署阶段：如果你要在 GitHub 仓库中放自己的照片，请：
-   *    - 在根目录创建 memories/ 文件夹并放入 photo1.jpg 等。
-   *    - 将下面的数组改为 ['./memories/photo1.jpg', './memories/photo2.jpg', ...]
+   * 1. 本地开发：memories/ 文件夹中的照片被 Vite 自动作为 public assets 服务
+   * 2. 部署阶段：workflow 会复制 memories/ 到部署产物中
+   * 3. 如果图片无法加载，应用不会崩溃（有错误处理保护）
    */
   const photoUrls = [
-    'memories/photo2.jpg',
-    'memories/photo3.jpg',
-    'memories/photo4.jpg',
-    'memories/photo5.jpg',
-    'memories/photo6.jpg',
-    'memories/photo7.jpg',
-    'memories/photo8.jpg',
-    'memories/photo9.jpg',
-    'memories/photo10.jpg',
-    'memories/photo11.jpg',    
-    'memories/photo12.jpg',
-    'memories/photo13.jpg',
-    'memories/photo14.jpg',
-    'memories/photo15.jpg',
-    'memories/photo16.jpg',
-    'memories/photo17.jpg',
-    'memories/photo18.jpg',
-    'memories/photo19.jpg',
-    'memories/photo20.jpg',
-    'memories/photo21.jpg',
-    'memories/photo22.jpg',
+    'photo2.jpg',
+    'photo3.jpg',
+    'photo4.jpg',
+    'photo5.jpg',
+    'photo6.jpg',
+    'photo7.jpg',
+    'photo8.jpg',
+    'photo9.jpg',
+    'photo10.jpg',
+    'photo11.jpg',    
+    'photo12.jpg',
+    'photo13.jpg',
+    'photo14.jpg',
+    'photo15.jpg',
+    'photo16.jpg',
+    'photo17.jpg',
+    'photo18.jpg',
+    'photo19.jpg',
+    'photo20.jpg',
+    'photo21.jpg',
+    'photo22.jpg',
   ];
 
   for (let i = 0; i < count; i++) {
