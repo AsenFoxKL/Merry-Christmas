@@ -26,15 +26,22 @@ const MusicControlButton: React.FC<{
   isLoading: boolean;
   hasError: boolean;
 }> = ({ isPlaying, isMuted, onTogglePlayPause, isLoading, hasError }) => {
+  const [showHint, setShowHint] = React.useState(false);
+
   return (
     <button
-      onClick={onTogglePlayPause}
+      onClick={() => {
+        onTogglePlayPause();
+        setShowHint(false);
+      }}
+      onMouseEnter={() => setShowHint(true)}
+      onMouseLeave={() => setShowHint(false)}
       className={`group relative w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${
         hasError
           ? 'bg-red-500/20 border border-red-500/40'
           : 'bg-yellow-500/20 border border-yellow-500/40 hover:bg-yellow-500/30'
       } ${isLoading ? 'animate-pulse' : ''}`}
-      title={isMuted ? 'Unmute' : 'Mute'}
+      title={isMuted ? 'Unmute' : hasError ? 'Click to retry' : 'Click to play/pause'}
     >
       {/* 外圆圈 */}
       <div

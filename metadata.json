@@ -1,5 +1,5 @@
 {
-  "name": "Particle Christmas Tree",
+  "name": "圣诞树|Christmas Tree ❥sen",
   "description": "An interactive 3D Christmas tree built with 2,500 particles using Fermat's spiral, featuring hierarchical distribution of leaves, ornaments, and lights with a lerp-based explosion interaction and MediaPipe hand gesture control.",
   "requestFramePermissions": [
     "camera"

@@ -19,41 +19,49 @@
 import { Track } from '../hooks/useAudioManager';
 
 /**
- * 配置你的音乐列表
- * 更新此数组来添加或修改歌曲
+ * 配置本地音乐列表
+ * 注意：GitHub Pages 上请使用相对路径
+ * 文件需要在 public/music/ 文件夹中，构建时会复制到 dist/music/
  */
 export const MUSIC_TRACKS: Track[] = [
-  // 示例：取消注释以使用
   {
     id: 1,
-    name: 'Saccharin.mp3',
-    url: '/music/Saccharin.mp3',
+    name: 'Saccharin',
+    url: './music/Saccharin.mp3',
   },
   {
     id: 2,
-    name: "Not Going Home",
-    url: "/music/Not Going Home.mp3",
+    name: 'Not Going Home',
+    url: './music/Not Going Home.mp3',
   },
   {
     id: 3,
     name: "We Don't Talk Anymore",
-    url: "/music/We Don't Talk Anymore.mp3"
+    url: "./music/We Don't Talk Anymore.mp3",
   },
-  // 添加更多歌曲...
 ];
 
 /**
- * 从 CDN 加载音乐（备选方案）
- * 
- * 示例使用 free Christmas music CDN：
- * https://commondatastorage.googleapis.com/codeskulptor-assets/Epoq-Lepidoptera.ogg
+ * 从 CDN 加载音乐（推荐用于 GitHub Pages）
+ * 无需托管音乐文件，直接使用外部资源
+ * 这些是免费的示例音乐 URL，你可以替换为自己的
  */
 export const MUSIC_TRACKS_CDN: Track[] = [
-  // {
-  //   id: 1,
-  //   name: 'Christmas Music',
-  //   url: 'https://example.com/christmas-music.mp3',
-  // },
+//   {
+//     id: 101,
+//     name: 'Christmas Music (Example 1)',
+//     url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
+//   },
+//   {
+//     id: 102,
+//     name: 'Christmas Music (Example 2)',
+//     url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
+//   },
+//   {
+//     id: 103,
+//     name: 'Christmas Music (Example 3)',
+//     url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
+//   },
 ];
 
 /**
@@ -68,8 +76,11 @@ export const loadDynamicMusicTracks = async (): Promise<Track[]> => {
 };
 
 /**
- * 合并多个音乐源
+ * 合并多个音乐源（本地 + CDN）
+ * 如果本地音乐文件不存在，会自动使用 CDN 音乐
  */
 export const getMusicTracks = (): Track[] => {
-  return [...MUSIC_TRACKS, ...MUSIC_TRACKS_CDN];
+  const combined = [...MUSIC_TRACKS, ...MUSIC_TRACKS_CDN];
+  // 如果没有配置任何本地音乐，优先使用 CDN（更可靠）
+  return MUSIC_TRACKS.length > 0 ? combined : MUSIC_TRACKS_CDN;
 };

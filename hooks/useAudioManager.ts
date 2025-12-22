@@ -25,6 +25,7 @@ export const useAudioManager = (tracks: Track[], autoPlayOnMount = true) => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const retryCountRef = useRef<{ [key: number]: number }>({});
   const maxRetriesRef = useRef(3);
+  const userInteractedRef = useRef(false);
 
   const [state, setState] = useState<AudioState>({
     isPlaying: false,
@@ -79,7 +80,9 @@ export const useAudioManager = (tracks: Track[], autoPlayOnMount = true) => {
         if (retryCount < maxRetriesRef.current) {
           retryCountRef.current[state.currentTrackId] = retryCount + 1;
           setTimeout(() => {
-            audio.play().catch(() => {});
+            if (audioRef.current && userInteractedRef.current) {
+              audio.play().catch(() => {});
+            }
           }, 1000 * (retryCount + 1)); // 指数退避
         } else {
           handleNext();
@@ -107,12 +110,28 @@ export const useAudioManager = (tracks: Track[], autoPlayOnMount = true) => {
 
     audioRef.current = audio;
 
+    // 监听用户交互，解除自动播放限制
+    const onUserInteract = () => {
+      userInteractedRef.current = true;
+      // 尝试恢复播放（如果被自动播放策略中断）
+      if (state.currentTrackId !== null && !state.isPlaying && autoPlayOnMount) {
+        audio.play().catch(() => {});
+      }
+    };
+
+    document.addEventListener('click', onUserInteract, { once: true });
+    document.addEventListener('touchstart', onUserInteract, { once: true });
+    document.addEventListener('keydown', onUserInteract, { once: true });
+
     return () => {
       audio.removeEventListener('timeupdate', onTimeUpdate);
       audio.removeEventListener('loadedmetadata', onLoadedMetadata);
       audio.removeEventListener('ended', onEnded);
       audio.removeEventListener('error', onError);
       audio.removeEventListener('canplay', onCanPlay);
+      document.removeEventListener('click', onUserInteract);
+      document.removeEventListener('touchstart', onUserInteract);
+      document.removeEventListener('keydown', onUserInteract);
     };
   }, []);
 
@@ -126,20 +145,41 @@ export const useAudioManager = (tracks: Track[], autoPlayOnMount = true) => {
       retryCountRef.current[trackId] = 0;
 
       audioRef.current.src = track.url;
-      audioRef.current
-        .play()
-        .then(() => {
-          setState((prev) => ({
-            ...prev,
-            isPlaying: true,
-            currentTrackId: trackId,
-          }));
-        })
-        .catch((err) => {
-          console.error('Failed to play audio:', err);
-          setHasError(true);
-          setIsLoading(false);
-        });
+      
+      // 只有在用户交互后或明确调用 play 时才播放
+      const attemptPlay = () => {
+        if (!audioRef.current) return;
+        
+        audioRef.current
+          .play()
+          .then(() => {
+            setState((prev) => ({
+              ...prev,
+              isPlaying: true,
+              currentTrackId: trackId,
+            }));
+          })
+          .catch((err: Error) => {
+            console.log('Play failed:', err.name);
+            // NotAllowedError 是自动播放被拦截，这是正常的
+            if (err.name === 'NotAllowedError') {
+              // 等待用户交互后再试
+              setHasError(false);
+              return;
+            }
+            // 其他错误（文件不存在、格式不支持等）
+            setHasError(true);
+            setIsLoading(false);
+          });
+      };
+
+      // 检查是否已获得用户交互
+      if (userInteractedRef.current) {
+        attemptPlay();
+      } else {
+        // 如果还没有用户交互，延迟尝试
+        setTimeout(attemptPlay, 100);
+      }
     },
     [playlist]
   );
@@ -247,6 +287,7 @@ export const useAudioManager = (tracks: Track[], autoPlayOnMount = true) => {
   useEffect(() => {
     if (autoPlayOnMount && playlist.length > 0 && !state.currentTrackId) {
       // 延迟播放以避免浏览器自动播放政策
+      // 同时等待用户交互
       const timer = setTimeout(() => {
         play(playlist[0].id);
       }, 500);
