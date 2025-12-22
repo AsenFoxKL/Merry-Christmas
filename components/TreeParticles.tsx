@@ -31,21 +31,13 @@ const PhotoParticle: React.FC<PhotoParticleProps> = ({ data, isExploded, onSelec
   const currentPos = useRef(data.treePos.clone());
   const [loadError, setLoadError] = useState(false);
   
-  // Use direct URL for local images (will be in public/ = memories/)
-  // Fallback to online placeholder if image fails to load
-  const imageUrl = data.textureUrl ? data.textureUrl : 'https://picsum.photos/200/200';
-  
   const texture = useLoader(
     THREE.TextureLoader, 
-    imageUrl,
+    data.textureUrl || 'https://picsum.photos/400/400',
     undefined,
-    (error) => {
-      console.warn(`Failed to load image: ${imageUrl}`, error);
-      setLoadError(true);
-    }
+    () => setLoadError(true)
   );
 
-  // 计算长宽比以适应 0.4x0.55 的展示窗口
   const { planeW, planeH } = useMemo(() => {
     if (!texture || !texture.image) return { planeW: 0.4, planeH: 0.4 };
     const imgAspect = texture.image.width / texture.image.height;
@@ -62,18 +54,37 @@ const PhotoParticle: React.FC<PhotoParticleProps> = ({ data, isExploded, onSelec
     return { planeW: w, planeH: h };
   }, [texture]);
 
-  useFrame(() => {
+  useFrame((state) => {
     if (!meshRef.current) return;
+    const time = state.clock.getElapsedTime();
     const target = isExploded ? data.randPos : data.treePos;
+    
     currentPos.current.lerp(target, 0.08);
+    const finalPos = currentPos.current.clone();
     
-    meshRef.current.position.copy(currentPos.current);
+    if (isExploded) {
+      const floatAmp = 0.6;
+      const freq = 0.5;
+      finalPos.x += Math.sin(time * freq + data.id) * floatAmp;
+      finalPos.y += Math.cos(time * freq * 0.8 + data.id) * floatAmp;
+      finalPos.z += Math.sin(time * freq * 1.2 + data.id * 0.5) * floatAmp;
+    }
+
+    meshRef.current.position.copy(finalPos);
     
-    // 面向中心
     const angle = Math.atan2(currentPos.current.x, currentPos.current.z);
     meshRef.current.rotation.y = angle;
     
-    // 如果被聚焦则在树上隐藏
+    if (isExploded) {
+      meshRef.current.rotation.x = Math.sin(time * 0.4 + data.id) * 0.1;
+      meshRef.current.rotation.z = Math.cos(time * 0.5 + data.id) * 0.1;
+    } else {
+      meshRef.current.rotation.x = 0;
+      meshRef.current.rotation.z = 0;
+    }
+    
+    // Completely hide the particle group when it's being shown in high-res focus mode
+    meshRef.current.visible = !isFocused;
     meshRef.current.scale.setScalar(isFocused ? 0 : 1);
   });
 
@@ -87,19 +98,16 @@ const PhotoParticle: React.FC<PhotoParticleProps> = ({ data, isExploded, onSelec
         onSelect(data);
       }}
     >
-      {/* 白色外框 */}
       <Mesh name="PHOTO_MESH">
         <BoxGeometry args={[0.5, 0.65, 0.05]} />
         <MeshStandardMaterial color="#ffffff" metalness={0.2} roughness={0.8} />
       </Mesh>
       
-      {/* 装饰金边 */}
       <Mesh position={[0, 0, 0.026]}>
         <PlaneGeometry args={[0.44, 0.58]} />
         <MeshStandardMaterial color="#FFD700" metalness={0.8} roughness={0.2} />
       </Mesh>
 
-      {/* 照片主体（按比例缩放） */}
       <Mesh position={[0, 0, 0.028]}>
         <PlaneGeometry args={[planeW, planeH]} />
         <MeshBasicMaterial 
@@ -137,39 +145,51 @@ const TreeParticles: React.FC<TreeParticlesProps> = ({ data, isExploded, onSelec
   const heptagramShape = useMemo(() => createStarShape(7, 0.2, 0.1), []);
   const currentPositions = useRef<THREE.Vector3[]>(data.map(d => d.treePos.clone()));
 
-  useFrame(() => {
+  useFrame((state) => {
+    const time = state.clock.getElapsedTime();
     const lerpSpeed = 0.08;
-    const threshold = 0.001;
+    const floatFreq = 0.6;
+    const floatAmp = 0.45;
 
     (Object.entries(groups) as [string, ParticleData[]][]).forEach(([key, subset]) => {
       if (key === 'PHOTO') return; 
       const mesh = meshRefs.current[key];
       if (!mesh) return;
 
-      let needsUpdate = false;
       subset.forEach((p, i) => {
         const target = isExploded ? p.randPos : p.treePos;
         const current = currentPositions.current[p.id];
 
-        if (current.distanceToSquared(target) > threshold) {
-          current.lerp(target, lerpSpeed);
-          needsUpdate = true;
+        current.lerp(target, lerpSpeed);
+        DUMMY.position.copy(current);
+        
+        if (isExploded) {
+          DUMMY.position.x += Math.sin(time * floatFreq + p.id) * floatAmp;
+          DUMMY.position.y += Math.cos(time * floatFreq * 0.9 + p.id) * floatAmp;
+          DUMMY.position.z += Math.sin(time * floatFreq * 1.1 + p.id * 0.5) * floatAmp;
         }
 
-        DUMMY.position.copy(current);
         DUMMY.scale.setScalar(p.scale);
         
         if (p.type === ParticleType.LEAF) {
-          DUMMY.rotation.set(0, (p.id % 10) * 0.1, 0);
+          DUMMY.rotation.set(
+            isExploded ? Math.sin(time * 0.3 + p.id) * 0.2 : 0,
+            (p.id % 10) * 0.1 + (isExploded ? time * 0.2 : 0),
+            isExploded ? Math.cos(time * 0.4 + p.id) * 0.2 : 0
+          );
+        } else {
+          if (isExploded) {
+            DUMMY.rotation.set(time * 0.2 + p.id, time * 0.15 + p.id, 0);
+          } else {
+            DUMMY.rotation.set(0, 0, 0);
+          }
         }
 
         DUMMY.updateMatrix();
         mesh.setMatrixAt(i, DUMMY.matrix);
       });
       
-      if (needsUpdate) {
-        mesh.instanceMatrix.needsUpdate = true;
-      }
+      mesh.instanceMatrix.needsUpdate = true;
     });
   });
 

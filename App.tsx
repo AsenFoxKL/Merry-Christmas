@@ -2,14 +2,14 @@
 import React, { useState, useMemo, Suspense, useRef, useCallback, useEffect } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Environment, PerspectiveCamera, Stars } from '@react-three/drei';
-import { EffectComposer, Bloom, Vignette }
-  from '@react-three/postprocessing';
-  import * as THREE from 'three';
+import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
+import * as THREE from 'three';
 import TreeParticles from './components/TreeParticles';
 import Star from './components/Star';
 import GoldDust from './components/GoldDust';
 import GoldenSpirals from './components/GoldenSpirals';
 import Atmosphere from './components/Atmosphere';
+import GroundRipple from './components/GroundRipple';
 import FocusPhoto from './components/FocusPhoto';
 import HandController from './components/HandController';
 import Overlay from './components/Overlay';
@@ -17,7 +17,6 @@ import { generateTreeData } from './utils';
 import { ParticleData, ParticleType } from './types';
 
 const AmbientLight = 'ambientLight' as any;
-const PointLight = 'pointLight' as any;
 const SpotLight = 'spotLight' as any;
 
 const CameraController: React.FC<{ 
@@ -73,11 +72,9 @@ const GestureRaycaster: React.FC<{
     const ndcY = -(pointerPos.y * 2) + 1;
     const pointerNDC = new THREE.Vector2(ndcX, ndcY);
     
-    // 1. 设置射线检测
     raycaster.setFromCamera(pointerNDC, camera);
     const intersects = raycaster.intersectObjects(scene.children, true);
     
-    // 优先尝试直接命中
     const photoIntersect = intersects.find(obj => obj.object.name === 'PHOTO_MESH');
     
     if (photoIntersect) {
@@ -91,23 +88,19 @@ const GestureRaycaster: React.FC<{
       }
     }
 
-    // 2. 如果没有直接命中，计算 NDC 空间中最近的物体
     let nearestId = null;
     let minDistanceSq = Infinity;
-    const SNAP_THRESHOLD_SQ = 0.15; // 约屏宽的 38%
+    const SNAP_THRESHOLD_SQ = 0.15;
 
     scene.traverse((child) => {
       if (child.name === 'PHOTO_MESH_WRAPPER' && child.userData.id !== undefined) {
-        // 强制更新世界矩阵以获取最新坐标
         child.updateWorldMatrix(true, false);
         const worldPos = new THREE.Vector3();
         child.getWorldPosition(worldPos);
         
-        // 投影到 NDC
         const screenPos = worldPos.project(camera);
         const distSq = pointerNDC.distanceToSquared(new THREE.Vector2(screenPos.x, screenPos.y));
         
-        // 只考虑在相机前方的物体 (z < 1)
         if (screenPos.z < 1 && distSq < minDistanceSq) {
           minDistanceSq = distSq;
           nearestId = child.userData.id;
@@ -165,6 +158,7 @@ const VisualCursor: React.FC<{ active: boolean, pos: { x: number, y: number } | 
 const App: React.FC = () => {
   const [isExploded, setIsExploded] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<ParticleData | null>(null);
+  const [isClosingFocus, setIsClosingFocus] = useState(false);
   const [name, setName] = useState('My Dear');
   const [pointerPos, setPointerPos] = useState<{ x: number, y: number } | null>(null);
   const [isPointerActive, setIsPointerActive] = useState(false);
@@ -200,20 +194,36 @@ const App: React.FC = () => {
   const handlePointerMove = useCallback((x: number, y: number) => setPointerPos({ x, y }), []);
   const handlePointerToggle = useCallback((active: boolean) => setIsPointerActive(active), []);
 
+  const selectPhotoAction = useCallback((target: ParticleData) => {
+    setSelectedPhoto(target);
+    setIsClosingFocus(false);
+    // Force stop camera movement when focusing
+    rotVel.current = 0;
+    zoomVel.current = 0;
+  }, []);
+
   const handlePinchStart = useCallback((targetId: number | null) => {
     if (targetId !== null) {
       const target = treeData.find(d => d.id === targetId);
       if (target && target.type === ParticleType.PHOTO) {
-        setSelectedPhoto(target);
-        rotVel.current = 0;
-        zoomVel.current = 0;
+        selectPhotoAction(target);
       }
     }
-  }, [treeData]);
+  }, [treeData, selectPhotoAction]);
 
   const handlePinchEnd = useCallback(() => {
-    setSelectedPhoto(null);
-  }, []);
+    if (selectedPhoto && !isClosingFocus) {
+      setIsClosingFocus(true);
+    }
+  }, [selectedPhoto, isClosingFocus]);
+
+  const handlePhotoSelect = useCallback((photo: ParticleData | null) => {
+    if (photo) {
+      selectPhotoAction(photo);
+    } else {
+      setIsClosingFocus(true);
+    }
+  }, [selectPhotoAction]);
 
   return (
     <div className="w-full h-screen bg-[#020202] relative overflow-hidden">
@@ -246,22 +256,34 @@ const App: React.FC = () => {
           <TreeParticles 
             data={treeData} 
             isExploded={isExploded} 
-            onSelectPhoto={setSelectedPhoto}
+            onSelectPhoto={handlePhotoSelect}
             focusedPhotoId={selectedPhoto?.id || null}
           />
           
-          {selectedPhoto && <FocusPhoto photo={selectedPhoto} onClose={() => setSelectedPhoto(null)} />}
+          {selectedPhoto && (
+            <FocusPhoto 
+              photo={selectedPhoto} 
+              isExploded={isExploded} 
+              isClosing={isClosingFocus}
+              onCloseRequest={() => setIsClosingFocus(true)}
+              onFinishedClosing={() => {
+                setSelectedPhoto(null);
+                setIsClosingFocus(false);
+              }} 
+            />
+          )}
 
           <GoldDust isExploded={isExploded} />
           {!isExploded && <GoldenSpirals />}
           <Star position={[0, 15.5, 0]} />
           <Atmosphere />
+          <GroundRipple isExploded={isExploded} />
 
           <EffectComposer enableNormalPass multisampling={0}>
             <Bloom luminanceThreshold={1.2} mipmapBlur intensity={0.4} radius={0.3} />
             <Vignette eskil={false} offset={0.2} darkness={0.9} />
           </EffectComposer>
-        </Suspense> 
+        </Suspense>
       </Canvas>
 
       <VisualCursor active={isPointerActive} pos={pointerPos} />

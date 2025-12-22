@@ -13,7 +13,7 @@ const FORCE = new THREE.Vector3();
 const SPIRAL = new THREE.Vector3();
 
 const GoldDust: React.FC<{ isExploded: boolean }> = ({ isExploded }) => {
-  const count = 1500; // 适当减少以平衡后期效果
+  const count = 3500; // Increased density for "enhanced" effect
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const data = useMemo(() => generateGoldDustData(count), []);
   
@@ -23,8 +23,8 @@ const GoldDust: React.FC<{ isExploded: boolean }> = ({ isExploded }) => {
   useFrame((state) => {
     if (!meshRef.current) return;
     const t = state.clock.getElapsedTime();
-    const stiffness = 0.03;
-    const damping = 0.82;
+    const stiffness = 0.02; // Slightly more fluid
+    const damping = 0.85;
 
     for (let i = 0; i < count; i++) {
       const d = data[i];
@@ -35,7 +35,8 @@ const GoldDust: React.FC<{ isExploded: boolean }> = ({ isExploded }) => {
       FORCE.subVectors(target, current).multiplyScalar(stiffness);
       
       if (!isExploded) {
-        SPIRAL.set(-current.z, 0, current.x).normalize().multiplyScalar(0.015);
+        // Subtle orbiting spiral
+        SPIRAL.set(-current.z, 0.1, current.x).normalize().multiplyScalar(0.012);
         FORCE.add(SPIRAL);
       }
 
@@ -43,9 +44,11 @@ const GoldDust: React.FC<{ isExploded: boolean }> = ({ isExploded }) => {
       current.add(v);
 
       DUMMY.position.copy(current);
-      // 微小的视觉扰动
-      DUMMY.position.y += Math.sin(t * 1.5 + d.phase) * 0.05;
-      DUMMY.scale.setScalar(0.03 + Math.sin(t * 2 + d.phase) * 0.015);
+      // Magical flicker and sine wave movement
+      DUMMY.position.y += Math.sin(t * 1.2 + d.phase) * 0.08;
+      // Scale pulsing for shimmering effect
+      const shimmer = 0.04 + Math.sin(t * 3.0 + d.phase) * 0.02;
+      DUMMY.scale.setScalar(shimmer);
       DUMMY.updateMatrix();
       meshRef.current.setMatrixAt(i, DUMMY.matrix);
     }
@@ -55,7 +58,13 @@ const GoldDust: React.FC<{ isExploded: boolean }> = ({ isExploded }) => {
   return (
     <InstancedMesh ref={meshRef} args={[undefined, undefined, count]}>
       <SphereGeometry args={[1, 4, 4]} />
-      <MeshStandardMaterial color="#FFD700" emissive="#FFD700" emissiveIntensity={4} transparent opacity={0.6} />
+      <MeshStandardMaterial 
+        color="#FFD700" 
+        emissive="#FFD700" 
+        emissiveIntensity={6} 
+        transparent 
+        opacity={0.7} 
+      />
     </InstancedMesh>
   );
 };

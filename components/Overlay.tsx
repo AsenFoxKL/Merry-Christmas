@@ -18,55 +18,37 @@ const Overlay: React.FC<OverlayProps> = ({ onExplode, isExploded, name, setName,
 
   return (
     <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-12 z-10">
-      <div className="flex flex-col items-center mt-8">
-        <h1 className="text-6xl font-black tracking-[0.2em] uppercase select-none metallic-text">
+      <div className="flex flex-col items-center mt-12">
+        <h1 className="text-7xl md:text-8xl select-none metallic-text lowercase pt-4">
           Merry Christmas
         </h1>
-        <div className="mt-4 flex items-center justify-center text-yellow-100/70 text-lg font-light tracking-widest">
+        <div className="mt-2 flex items-center justify-center text-yellow-100/70 text-lg font-light tracking-widest">
           <span>Especially for</span>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="[Name]"
-            className="ml-2 bg-transparent border-none outline-none text-yellow-400 placeholder-yellow-800/50 w-32 pointer-events-auto transition-all focus:w-48"
+            className="ml-2 bg-transparent border-none outline-none text-yellow-400 placeholder-yellow-800/50 w-32 pointer-events-auto transition-all focus:w-48 text-center border-b border-yellow-500/20 focus:border-yellow-500/50"
           />
         </div>
       </div>
 
-      <div className="flex flex-col items-center gap-8 mb-4">
-        <div className="flex gap-6 pointer-events-auto">
-          <button
-            onClick={onExplode}
-            className="group relative px-12 py-4 rounded-full border border-yellow-500/50 text-white tracking-[0.3em] font-bold overflow-hidden transition-all duration-500 hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(255,190,0,0.1)]"
-          >
-            <div className="absolute inset-0 bg-white/5 backdrop-blur-md" />
-            <div className="shimmer-effect" />
-            <span className="relative z-10">
-              {isExploded ? 'ASSEMBLE' : 'RELEASE'}
-            </span>
-          </button>
-          
-          <label className="group relative px-12 py-4 rounded-full border border-white/20 text-white/80 tracking-[0.3em] font-medium overflow-hidden cursor-pointer transition-all hover:border-white/40 shadow-inner">
-            <div className="absolute inset-0 bg-white/5 backdrop-blur-md" />
-            <span className="relative z-10">UPLOAD MEMORIES</span>
-            <input 
-              type="file" 
-              className="hidden" 
-              multiple 
-              accept="image/*" 
-              onChange={handleFileChange}
-            />
-          </label>
-        </div>
-        
-        <div className="text-white/20 text-[10px] tracking-[0.8em] uppercase font-mono">
-          Hand Vision Active • Optical Solver v4.2
+      {/* 
+          Note: Interaction buttons and upload label are hidden to prevent blocking the view.
+          The tree can still be controlled via hand gestures (Spread to Release, Fist to Assemble).
+      */}
+      <div className="flex flex-col items-center gap-8 mb-4 opacity-0 pointer-events-none">
+        <div className="flex gap-6">
+          <button onClick={onExplode}>ASSEMBLE / RELEASE</button>
+          <input type="file" multiple accept="image/*" onChange={handleFileChange} />
         </div>
       </div>
 
       <style>{`
         .metallic-text {
+          font-family: 'Dancing Script', 'Great Vibes', cursive;
+          font-weight: 700;
           background: linear-gradient(
             to right,
             #bf953f,
@@ -78,8 +60,11 @@ const Overlay: React.FC<OverlayProps> = ({ onExplode, isExploded, name, setName,
           background-size: 200% auto;
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
-          animation: metallic-flow 4s linear infinite;
-          filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.3));
+          animation: metallic-flow 6s linear infinite;
+          filter: drop-shadow(0 2px 18px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 12px rgba(255, 215, 0, 0.25));
+          letter-spacing: 0.6px;
+          transform: rotate(-1deg);
+          text-shadow: 0 1px 0 rgba(0,0,0,0.18);
         }
 
         @keyframes metallic-flow {
@@ -101,10 +86,6 @@ const Overlay: React.FC<OverlayProps> = ({ onExplode, isExploded, name, setName,
           );
           transform: skewX(-25deg);
           transition: 0.5s;
-        }
-
-        button:hover .shimmer-effect {
-          animation: shine 1.5s infinite;
         }
 
         @keyframes shine {
