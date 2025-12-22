@@ -10,34 +10,17 @@ export const generateTreeData = (count: number): ParticleData[] => {
   const maxRadius = 5;
 
   /**
-   * 图片预置说明：
+   * 图片自动加载说明：
    * 1. 本地开发：memories/ 文件夹中的照片被 Vite 自动作为 public assets 服务
    * 2. 部署阶段：workflow 会复制 memories/ 到部署产物中
    * 3. 如果图片无法加载，应用不会崩溃（有错误处理保护）
+   * 4. 新增图片无需修改代码，只需上传到 memories/ 文件夹即可
    */
-  const photoUrls = [
-    'photo2.jpg',
-    'photo3.jpg',
-    'photo4.jpg',
-    'photo5.jpg',
-    'photo6.jpg',
-    'photo7.jpg',
-    'photo8.jpg',
-    'photo9.jpg',
-    'photo10.jpg',
-    'photo11.jpg',    
-    'photo12.jpg',
-    'photo13.jpg',
-    'photo14.jpg',
-    'photo15.jpg',
-    'photo16.jpg',
-    'photo17.jpg',
-    'photo18.jpg',
-    'photo19.jpg',
-    'photo20.jpg',
-    'photo21.jpg',
-    'photo22.jpg',
-  ];
+  const photoModules = import.meta.glob<string>('/memories/*.{jpg,jpeg,png,gif}', { query: '?url', import: 'default' });
+  const photoUrls = Object.keys(photoModules).map(path => {
+    // 提取文件名，如 '/memories/photo1.jpg' -> 'photo1.jpg'
+    return path.split('/').pop() || '';
+  }).filter(Boolean);
 
   for (let i = 0; i < count; i++) {
     const t = i / count;
@@ -74,7 +57,8 @@ export const generateTreeData = (count: number): ParticleData[] => {
     } else if (rand < 0.85 && normalizedY > 0.1 && normalizedY < 0.85) {
       type = ParticleType.PHOTO;
       radiusOffset = 0.8;
-      const photoIndex = Math.floor(Math.random() * photoUrls.length);
+      // 使用粒子索引确保所有图片都被均匀使用，避免重复
+      const photoIndex = i % photoUrls.length;
       textureUrl = photoUrls[photoIndex];
       scale = 2.0; 
       color = '#ffffff';

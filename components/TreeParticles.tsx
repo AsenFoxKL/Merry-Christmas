@@ -23,13 +23,17 @@ interface PhotoParticleProps {
   data: ParticleData;
   isExploded: boolean;
   onSelect: (photo: ParticleData) => void;
+  onHover: (id: number | null) => void;
   isFocused: boolean;
+  isHovered: boolean;
 }
 
-const PhotoParticle: React.FC<PhotoParticleProps> = ({ data, isExploded, onSelect, isFocused }) => {
+const PhotoParticle: React.FC<PhotoParticleProps> = ({ data, isExploded, onSelect, onHover, isFocused, isHovered }) => {
   const meshRef = useRef<THREE.Group>(null);
   const currentPos = useRef(data.treePos.clone());
   const [loadError, setLoadError] = useState(false);
+  const visibilityRef = useRef(1);
+  const currentHoverScaleRef = useRef(1);
   
   const texture = useLoader(
     THREE.TextureLoader, 
@@ -83,9 +87,18 @@ const PhotoParticle: React.FC<PhotoParticleProps> = ({ data, isExploded, onSelec
       meshRef.current.rotation.z = 0;
     }
     
-    // Completely hide the particle group when it's being shown in high-res focus mode
-    meshRef.current.visible = !isFocused;
-    meshRef.current.scale.setScalar(isFocused ? 0 : 1);
+    // Visibility transition (hide when zoomed in)
+    const targetVisibility = isFocused ? 0 : 1;
+    visibilityRef.current = THREE.MathUtils.lerp(visibilityRef.current, targetVisibility, 0.15);
+    
+    // Hover scale transition (shared between mouse and hand tracker)
+    const targetHoverScale = isHovered ? 1.25 : 1;
+    currentHoverScaleRef.current = THREE.MathUtils.lerp(currentHoverScaleRef.current, targetHoverScale, 0.15);
+    
+    const finalScale = visibilityRef.current * currentHoverScaleRef.current;
+    
+    meshRef.current.scale.setScalar(finalScale);
+    meshRef.current.visible = visibilityRef.current > 0.01;
   });
 
   return (
@@ -93,6 +106,11 @@ const PhotoParticle: React.FC<PhotoParticleProps> = ({ data, isExploded, onSelec
       ref={meshRef} 
       name="PHOTO_MESH_WRAPPER"
       userData={{ id: data.id }}
+      onPointerOver={(e: any) => {
+        e.stopPropagation();
+        onHover(data.id);
+      }}
+      onPointerOut={() => onHover(null)}
       onClick={(e: any) => {
         e.stopPropagation();
         onSelect(data);
@@ -100,12 +118,12 @@ const PhotoParticle: React.FC<PhotoParticleProps> = ({ data, isExploded, onSelec
     >
       <Mesh name="PHOTO_MESH">
         <BoxGeometry args={[0.5, 0.65, 0.05]} />
-        <MeshStandardMaterial color="#ffffff" metalness={0.2} roughness={0.8} />
+        <MeshStandardMaterial color={isHovered ? "#fffbe6" : "#ffffff"} metalness={0.2} roughness={0.8} />
       </Mesh>
       
       <Mesh position={[0, 0, 0.026]}>
         <PlaneGeometry args={[0.44, 0.58]} />
-        <MeshStandardMaterial color="#FFD700" metalness={0.8} roughness={0.2} />
+        <MeshStandardMaterial color={isHovered ? "#ffec3d" : "#FFD700"} metalness={0.8} roughness={0.2} />
       </Mesh>
 
       <Mesh position={[0, 0, 0.028]}>
@@ -124,10 +142,19 @@ interface TreeParticlesProps {
   data: ParticleData[];
   isExploded: boolean;
   onSelectPhoto: (photo: ParticleData | null) => void;
+  onHoverPhoto: (id: number | null) => void;
   focusedPhotoId: number | null;
+  hoveredPhotoId: number | null;
 }
 
-const TreeParticles: React.FC<TreeParticlesProps> = ({ data, isExploded, onSelectPhoto, focusedPhotoId }) => {
+const TreeParticles: React.FC<TreeParticlesProps> = ({ 
+  data, 
+  isExploded, 
+  onSelectPhoto, 
+  onHoverPhoto, 
+  focusedPhotoId, 
+  hoveredPhotoId 
+}) => {
   const meshRefs = useRef<{ [key: string]: THREE.InstancedMesh | null }>({});
   
   const groups = useMemo(() => {
@@ -244,7 +271,9 @@ const TreeParticles: React.FC<TreeParticlesProps> = ({ data, isExploded, onSelec
           data={photo} 
           isExploded={isExploded} 
           onSelect={onSelectPhoto}
+          onHover={onHoverPhoto}
           isFocused={focusedPhotoId === photo.id}
+          isHovered={hoveredPhotoId === photo.id}
         />
       ))}
     </>
