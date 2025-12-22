@@ -71,8 +71,8 @@ const CinematicSubtitles: React.FC<{ text: string; onComplete: () => void }> = (
   useEffect(() => {
     const charCount = text.length;
     const enterTime = charCount * 65 + 1500;
-    const idleTime = 6000; 
-    const exitTime = 3000;
+    const idleTime = 3000; 
+    const exitTime = 1500;
 
     const t1 = setTimeout(() => setPhase('IDLE'), enterTime);
     const t2 = setTimeout(() => setPhase('EXITING'), enterTime + idleTime);
