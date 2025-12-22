@@ -5,41 +5,27 @@ import { ParticleType, ParticleData } from './types';
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 
 /**
- * 动态加载音乐文件
- * 使用 import.meta.glob 自动检测 public/music/ 中的所有音乐文件
- * 按照指定顺序排序，确保循环播放时顺序一致
+ * 生成音乐列表
+ * 音乐文件在 ./music 文件夹中
  */
 export const generateMusicTracks = () => {
-  const musicModules = import.meta.glob<string>('/music/*.{mp3,wav,ogg,m4a}', { query: '?url', import: 'default' });
-  const musicFilenames = Object.keys(musicModules)
-    .map(path => path.split('/').pop() || '')
-    .filter(Boolean);
-
-  // 定义期望的播放顺序
-  const preferredOrder = ['Saccharin', 'Not Going Home', "We Don't Talk Anymore"];
-  
-  // 按照首选顺序排序
-  musicFilenames.sort((a, b) => {
-    const aName = a.replace(/\.[^/.]+$/, '');
-    const bName = b.replace(/\.[^/.]+$/, '');
-    
-    const aIndex = preferredOrder.findIndex(name => aName.includes(name));
-    const bIndex = preferredOrder.findIndex(name => bName.includes(name));
-    
-    // 如果都在首选列表中，按首选顺序排序
-    if (aIndex !== -1 && bIndex !== -1) {
-      return aIndex - bIndex;
-    }
-    
-    // 其他文件按名称排序
-    return a.localeCompare(b);
-  });
-
-  return musicFilenames.map((filename, index) => ({
-    id: index + 1,
-    name: filename.replace(/\.[^/.]+$/, ''), // 移除扩展名作为名称
-    url: `/music/${filename}`,
-  }));
+  return [
+    {
+      id: 1,
+      name: 'Saccharin',
+      url: '/music/Saccharin.mp3',
+    },
+    {
+      id: 2,
+      name: 'Not Going Home',
+      url: '/music/Not Going Home.mp3',
+    },
+    {
+      id: 3,
+      name: "We Don't Talk Anymore",
+      url: "/music/We Don't Talk Anymore.mp3",
+    },
+  ];
 };
 
 export const generateTreeData = (count: number): ParticleData[] => {
@@ -49,16 +35,16 @@ export const generateTreeData = (count: number): ParticleData[] => {
 
   /**
    * 图片自动加载说明：
-   * 1. 本地开发：memories/ 文件夹中的照片被 Vite 自动作为 public assets 服务
-   * 2. 部署阶段：workflow 会复制 memories/ 到部署产物中
+   * 1. 本地开发：memories/ 文件夹中的照片被 Vite 自动服务
+   * 2. 部署阶段：memories/ 中的文件会被包含在部署产物中
    * 3. 如果图片无法加载，应用不会崩溃（有错误处理保护）
    * 4. 新增图片无需修改代码，只需上传到 memories/ 文件夹即可
    */
-  const photoModules = import.meta.glob<string>('/memories/*.{jpg,jpeg,png,gif}', { query: '?url', import: 'default' });
-  const photoUrls = Object.keys(photoModules).map(path => {
-    // 提取文件名，如 '/memories/photo1.jpg' -> 'photo1.jpg'
-    return path.split('/').pop() || '';
-  }).filter(Boolean);
+  const photoModules = import.meta.glob<{ default: string }>('./memories/*.{jpg,jpeg,png,gif}');
+  const photoUrls = Object.entries(photoModules).map(([path, mod]) => {
+    // 直接返回导入的 URL
+    return path; // glob 返回的路径会被 vite 正确处理
+  });
 
   for (let i = 0; i < count; i++) {
     const t = i / count;
