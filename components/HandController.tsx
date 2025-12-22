@@ -78,16 +78,34 @@ const HandController: React.FC<HandControllerProps> = ({
         }
         if (!isActive) return;
         setStatus("Radar Online");
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { width: 320, height: 240, facingMode: "user" } 
-        });
-        if (videoRef.current && isActive) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.onloadedmetadata = () => {
-            videoRef.current?.play().then(() => predictWebcam());
-          };
+        
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { width: 320, height: 240, facingMode: "user" } 
+          });
+          if (videoRef.current && isActive) {
+            videoRef.current.srcObject = stream;
+            videoRef.current.onloadedmetadata = () => {
+              cameraStreamReady = true; // 标记流已准备
+              videoRef.current?.play().catch((playErr) => {
+                // 视频播放失败，静默处理
+                console.warn("Video play error:", playErr);
+                setStatus("Radar Offline");
+              });
+            };
+            videoRef.current.onerror = () => {
+              setStatus("Radar Offline");
+            };
+          }
+        } catch (cameraErr) {
+          // 摄像头权限被拒绝或不可用，但应用继续运行
+          console.warn("Camera access denied or unavailable:", cameraErr);
+          setStatus("Radar Offline");
+          cameraStreamReady = false;
+          // 继续运行，不中断应用
         }
       } catch (err) {
+        console.error("Hand tracking setup error:", err);
         setStatus("Radar Offline");
       }
     }
@@ -95,10 +113,11 @@ const HandController: React.FC<HandControllerProps> = ({
     const dist = (p1: any, p2: any) => Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
 
     let lastStatusUpdate = 0;
+    let cameraStreamReady = false;
 
     async function predictWebcam() {
       if (!isActive || !videoRef.current || !globalHandLandmarker || !canvasRef.current) return;
-      if (videoRef.current.readyState >= 2) {
+      if (videoRef.current.readyState >= 2 && cameraStreamReady) {
         const startTimeMs = performance.now();
         const results = globalHandLandmarker.detectForVideo(videoRef.current, startTimeMs);
         const ctx = canvasRef.current.getContext('2d')!;
@@ -273,6 +292,10 @@ const HandController: React.FC<HandControllerProps> = ({
     }
 
     setupHandTracking();
+    
+    // 同时启动预测循环，即使摄像头未就绪也要运行（避免阻塞）
+    animationFrame = requestAnimationFrame(predictWebcam);
+    
     return () => {
       isActive = false;
       cancelAnimationFrame(animationFrame);

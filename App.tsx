@@ -296,6 +296,14 @@ const App: React.FC = () => {
   const handlePointerMove = useCallback((x: number, y: number) => setPointerPos({ x, y }), []);
   const handlePointerToggle = useCallback((active: boolean) => setIsPointerActive(active), []);
 
+  // 延迟启用手势识别，避免与初始化冲突
+  const [enableHandTracking, setEnableHandTracking] = useState(false);
+  useEffect(() => {
+    // 3秒后启用手势识别，确保场景已经完全加载
+    const timer = setTimeout(() => setEnableHandTracking(true), 3000);
+    return () => clearTimeout(timer);
+  }, []);
+
   const selectPhotoAction = useCallback((target: ParticleData) => {
     rotVel.current = 0;
     zoomVel.current = 0;
@@ -366,7 +374,7 @@ const App: React.FC = () => {
 
       <VisualCursor active={isPointerActive} pos={pointerPos} />
 
-      <HandController enabled={true} onSpread={() => setIsExploded(true)} onFist={() => setIsExploded(false)} onMove={handleHandMove} onPointerMove={handlePointerMove} onPointerToggle={handlePointerToggle} onPinchStart={() => {}} onPinchEnd={() => {}} />
+      <HandController enabled={enableHandTracking} onSpread={() => setIsExploded(true)} onFist={() => setIsExploded(false)} onMove={handleHandMove} onPointerMove={handlePointerMove} onPointerToggle={handlePointerToggle} onPinchStart={() => {}} onPinchEnd={() => {}} />
 
       <Overlay isExploded={isExploded} onExplode={() => setIsExploded(!isExploded)} onUpload={handleUploadMemories} onCinematic={triggerCinematic} cinematicMode={cinematicMode} onMessageEnd={() => setCinematicMode('LOOPING')} showUI={!selectedPhoto} />
 
