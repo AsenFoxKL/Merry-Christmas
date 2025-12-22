@@ -59,33 +59,50 @@ const RomanticStickers = () => (
 const CinematicSubtitles: React.FC<{ text: string; onComplete: () => void }> = ({ text, onComplete }) => {
   const lines = useMemo(() => {
     // 修正分行逻辑，确保 ":)" 不被拆分到新行。
-    // 使用非捕获组和前瞻来保持标点符号的完整性。
+    // 使用固定的两行文本（与 App 中传入的提示语一致）。
     return [
       "tip:在画面运动尝试张手握拳以享受律动感吧:)",
       "手机在横屏下体验更好噢~"
     ];
   }, []);
 
+  // 基于实际会渲染的字符数来计算进入时长，避免依赖外部传入的 text（不同环境 length 可能差异）。
+  const totalChars = useMemo(() => lines.join('').length, [lines]);
+
   const [phase, setPhase] = useState<'ENTERING' | 'IDLE' | 'EXITING'>('ENTERING');
 
   useEffect(() => {
-    const charCount = text.length;
-    const enterTime = charCount * 65 + 1500;
-    const idleTime = 3000; 
+    // 以渲染字符数为准计算时间，确保本地/生产环境行为一致。
+    const charCount = totalChars;
+    const perCharMs = 65; // 与之前设计一致的每字符延迟估算
+    const enterTime = charCount * perCharMs + 1500;
+    const idleTime = 3000;
     const exitTime = 1500;
+
+    // 日志方便在 GH Pages 上排查（可在浏览器控制台查看）。
+    // eslint-disable-next-line no-console
+    console.debug('[CinematicSubtitles] timings', { charCount, enterTime, idleTime, exitTime });
 
     const t1 = setTimeout(() => setPhase('IDLE'), enterTime);
     const t2 = setTimeout(() => setPhase('EXITING'), enterTime + idleTime);
     const t3 = setTimeout(onComplete, enterTime + idleTime + exitTime);
 
+    // 安全回退：如果上述任一定时器因环境原因被延迟或未触发，保证最终回调在可接受的最大时长后仍会执行。
+    const SAFETY_MAX = 20000; // 20s
+    const safety = setTimeout(() => {
+      // eslint-disable-next-line no-console
+      console.warn('[CinematicSubtitles] safety fallback triggered, calling onComplete');
+      try { onComplete(); } catch (e) { /* swallow */ }
+    }, Math.max(SAFETY_MAX, enterTime + idleTime + exitTime + 1000));
+
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
       clearTimeout(t3);
+      clearTimeout(safety);
     };
-  }, [text, onComplete]);
+  }, [totalChars, onComplete]);
 
-  let globalCharIdx = 0;
 
   return (
     <div className={`fixed inset-0 z-50 flex items-center justify-center pointer-events-none transition-all duration-[3000ms] ease-out ${phase === 'EXITING' ? 'opacity-0 scale-[1.5] blur-[80px]' : 'opacity-100'}`}>
@@ -94,29 +111,34 @@ const CinematicSubtitles: React.FC<{ text: string; onComplete: () => void }> = (
         {/* 背景贴纸 */}
         <RomanticStickers />
 
-        {lines.map((line, lineIdx) => (
-          <div key={lineIdx} className="flex flex-wrap justify-center max-w-[90vw] relative z-10">
-            {line.split('').map((char, charIdx) => {
-              const delay = globalCharIdx * 0.07;
-              globalCharIdx++;
-              return (
-                <span
-                  key={charIdx}
-                  className={`cinematic-tip-font tracking-[0.55em] italic ${phase === 'IDLE' ? 'cinematic-breathing-refined' : ''}`}
-                  style={{
-                    animationDelay: `${delay}s`,
-                    animationName: 'cinematic-stardust-reveal',
-                    animationDuration: '1.8s',
-                    animationFillMode: 'forwards',
-                    opacity: 0,
-                  }}
-                >
-                  {char === ' ' ? '\u00A0' : char}
-                </span>
-              );
-            })}
-          </div>
-        ))}
+        {(() => {
+          // 为每个字符计算绝对索引，避免依赖外部可变状态，保证生产/开发一致性。
+          let base = 0;
+          return lines.map((line, lineIdx) => (
+            <div key={lineIdx} className="flex flex-wrap justify-center max-w-[90vw] relative z-10">
+              {line.split('').map((char, charIdx) => {
+                const absoluteIdx = base + charIdx;
+                const delay = absoluteIdx * 0.07; // 与之前保持一致的秒级延迟
+                return (
+                  <span
+                    key={charIdx}
+                    className={`cinematic-tip-font tracking-[0.55em] italic ${phase === 'IDLE' ? 'cinematic-breathing-refined' : ''}`}
+                    style={{
+                      animationDelay: `${delay}s`,
+                      animationName: 'cinematic-stardust-reveal',
+                      animationDuration: '1.8s',
+                      animationFillMode: 'forwards',
+                      opacity: 0,
+                    }}
+                  >
+                    {char === ' ' ? '\u00A0' : char}
+                  </span>
+                );
+              })}
+              {(() => { base += line.length; return null; })()}
+            </div>
+          ));
+        })()}
       </div>
       <style>{`
         .cinematic-tip-font {
