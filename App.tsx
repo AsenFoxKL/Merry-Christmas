@@ -261,7 +261,7 @@ const App: React.FC = () => {
             <Bloom luminanceThreshold={1.2} mipmapBlur intensity={0.4} radius={0.3} />
             <Vignette eskil={false} offset={0.2} darkness={0.9} />
           </EffectComposer>
-        </Suspense>
+        </Suspense> 
       </Canvas>
 
       <VisualCursor active={isPointerActive} pos={pointerPos} />
