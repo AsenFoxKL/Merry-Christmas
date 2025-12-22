@@ -12,10 +12,10 @@ const DUMMY = new THREE.Object3D();
 const FORCE = new THREE.Vector3();
 const SPIRAL = new THREE.Vector3();
 
-const GoldDust: React.FC<{ isExploded: boolean }> = ({ isExploded }) => {
-  const count = 3500; // Increased density for "enhanced" effect
+const GoldDust: React.FC<{ isExploded: boolean; isMobile?: boolean }> = ({ isExploded, isMobile = false }) => {
+  const count = isMobile ? 1200 : 3500; // Significantly reduced for mobile
   const meshRef = useRef<THREE.InstancedMesh>(null);
-  const data = useMemo(() => generateGoldDustData(count), []);
+  const data = useMemo(() => generateGoldDustData(count), [count]);
   
   const curPos = useRef(data.map(d => d.randPos.clone()));
   const vel = useRef(data.map(() => new THREE.Vector3()));

@@ -4,6 +4,13 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Environment, PerspectiveCamera, Stars } from '@react-three/drei';
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import * as THREE from 'three';
+
+// 移动端检测函数
+const isMobileDevice = () => {
+  if (typeof window === 'undefined') return false;
+  const ua = navigator.userAgent || navigator.vendor || (window as any).opera;
+  return /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(ua.toLowerCase());
+};
 import TreeParticles from './components/TreeParticles';
 import Star from './components/Star';
 import GoldDust from './components/GoldDust';
@@ -321,7 +328,7 @@ const App: React.FC = () => {
 
   return (
     <div className="w-full h-screen bg-[#020202] relative overflow-hidden">
-      <Canvas shadows dpr={[1, 1.5]} gl={{ powerPreference: "high-performance", antialias: false }} frameloop="always" >
+      <Canvas shadows dpr={isMobileDevice() ? 1 : [1, 1.5]} gl={{ powerPreference: "high-performance", antialias: !isMobileDevice() }} frameloop="always" >
         <Suspense fallback={null}>
           <PerspectiveCamera makeDefault position={[0, 8, 30]} fov={45} />
           
@@ -332,7 +339,7 @@ const App: React.FC = () => {
           <GestureRaycaster pointerPos={isPointerActive ? pointerPos : null} onPinchStart={handlePinchStart} onPinchEnd={handlePinchEnd} onHover={handlePhotoHover} />
           
           <Environment preset="lobby" />
-          <Stars radius={120} depth={60} count={3000} factor={4} fade speed={1.2} />
+          <Stars radius={120} depth={60} count={isMobileDevice() ? 1500 : 3000} factor={4} fade speed={1.2} />
           <AmbientLight intensity={0.2} />
           <SpotLight position={[0, 40, 0]} angle={0.3} penumbra={1} intensity={2.5} color="#fff4e0" castShadow />
 
@@ -342,16 +349,18 @@ const App: React.FC = () => {
             <FocusPhoto photo={selectedPhoto} isExploded={isExploded} isClosing={isClosingFocus} onCloseRequest={() => setIsClosingFocus(true)} onFinishedClosing={() => { setSelectedPhoto(null); setIsClosingFocus(false); }} />
           )}
 
-          <GoldDust isExploded={isExploded} />
-          {!isExploded && <GoldenSpirals />}
+          <GoldDust isExploded={isExploded} isMobile={isMobileDevice()} />
+          {!isExploded && <GoldenSpirals isMobile={isMobileDevice()} />}
           <Star position={[0, 15.5, 0]} />
-          <Atmosphere />
-          <GroundRipple isExploded={isExploded} />
+          <Atmosphere isMobile={isMobileDevice()} />
+          <GroundRipple isExploded={isExploded} isMobile={isMobileDevice()} />
 
-          <EffectComposer enableNormalPass multisampling={0}>
-            <Bloom luminanceThreshold={1.2} mipmapBlur intensity={0.4} radius={0.3} />
-            <Vignette eskil={false} offset={0.2} darkness={0.9} />
-          </EffectComposer>
+          {!isMobileDevice() && (
+            <EffectComposer enableNormalPass multisampling={0}>
+              <Bloom luminanceThreshold={1.2} mipmapBlur intensity={0.4} radius={0.3} />
+              <Vignette eskil={false} offset={0.2} darkness={0.9} />
+            </EffectComposer>
+          )}
         </Suspense>
       </Canvas>
 

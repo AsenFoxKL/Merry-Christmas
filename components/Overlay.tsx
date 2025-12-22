@@ -71,8 +71,8 @@ const CinematicSubtitles: React.FC<{ text: string; onComplete: () => void }> = (
     const charCount = totalChars;
     const perCharMs = 65;
     const enterTime = charCount * perCharMs + 1500;
-    const idleTime = 3000;
-    const exitTime = 1500;
+    const idleTime = 2000; // 改为2秒延时
+    const exitTime = 800;  // 缩短退出动画时间
 
     const t1 = setTimeout(() => setPhase('IDLE'), enterTime);
     const t2 = setTimeout(() => setPhase('EXITING'), enterTime + idleTime);
@@ -94,7 +94,7 @@ const CinematicSubtitles: React.FC<{ text: string; onComplete: () => void }> = (
 
 
   return (
-    <div className={`fixed inset-0 z-50 flex items-center justify-center pointer-events-none transition-all duration-[3000ms] ease-out ${phase === 'EXITING' ? 'opacity-0 scale-[1.5] blur-[80px]' : 'opacity-100'}`}>
+    <div className={`fixed inset-0 z-50 flex items-center justify-center pointer-events-none transition-all duration-[800ms] ease-out ${phase === 'EXITING' ? 'opacity-0 scale-100' : 'opacity-100'}`}>
       <div className="relative px-10 md:px-24 py-14 md:py-20 bg-black/35 backdrop-blur-[35px] rounded-[50px] md:rounded-[70px] border border-white/10 shadow-[0_35px_90px_rgba(0,0,0,0.7)] flex flex-col items-center gap-6 md:gap-10">
         
         {/* 背景贴纸 */}
@@ -109,9 +109,8 @@ const CinematicSubtitles: React.FC<{ text: string; onComplete: () => void }> = (
                 const delay = absoluteIdx * 0.07;
                 
                 // 关键修复逻辑：
-                // 如果处于 ENTERING 阶段，使用内联样式驱动“进入动画”。
-                // 如果处于 IDLE 或其他阶段，移除内联动画属性，让 CSS 类的“呼吸动画”生效。
-                // 同时也必须手动保持 opacity: 0.98，防止移除 forwards 动画后透明度归零。
+                // 进入阶段：使用内联样式驱动进入动画
+                // 空闲和退出阶段：移除呼吸动画，保持透明度不变
                 const isEntering = phase === 'ENTERING';
                 const styleObj: React.CSSProperties = isEntering 
                   ? {
@@ -122,14 +121,13 @@ const CinematicSubtitles: React.FC<{ text: string; onComplete: () => void }> = (
                       opacity: 0, // 初始透明度
                     }
                   : {
-                      opacity: 0.98, // 动画结束后的保持状态
-                      // 这里不设置 animationName，允许 className 中的 breathing 动画接管
+                      opacity: 0.98, // 动画结束后的保持状态，不添加呼吸动画
                     };
 
                 return (
                   <span
                     key={charIdx}
-                    className={`cinematic-tip-font tracking-[0.55em] italic ${phase === 'IDLE' ? 'cinematic-breathing-refined' : ''}`}
+                    className={`cinematic-tip-font tracking-[0.55em] italic`}
                     style={styleObj}
                   >
                     {char === ' ' ? '\u00A0' : char}
@@ -156,14 +154,6 @@ const CinematicSubtitles: React.FC<{ text: string; onComplete: () => void }> = (
         @keyframes cinematic-stardust-reveal {
           0% { opacity: 0; transform: scale(0.5) translateY(45px); filter: blur(28px); }
           100% { opacity: 0.98; transform: scale(1) translateY(0); filter: blur(0); }
-        }
-        .cinematic-breathing-refined {
-          /* 增加 !important 确保覆盖（虽然移除内联样式后通常不需要，但作为双重保险） */
-          animation: breathing-ethereal-luxury 6.5s ease-in-out infinite !important;
-        }
-        @keyframes breathing-ethereal-luxury {
-          0%, 100% { opacity: 0.98; filter: blur(0px) brightness(1.1); transform: scale(1); }
-          50% { opacity: 0.38; filter: blur(6px) brightness(1.45); transform: scale(0.965); }
         }
         @keyframes sticker-float {
           0%, 100% { transform: translateY(0) rotate(-15deg); }

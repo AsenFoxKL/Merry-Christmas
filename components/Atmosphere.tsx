@@ -44,8 +44,8 @@ const snowFragmentShader = `
   }
 `;
 
-const Atmosphere: React.FC = () => {
-  const snowCount = 4500; // Increased count for richer effect
+const Atmosphere: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) => {
+  const snowCount = isMobile ? 2000 : 4500; // Reduce snow particles on mobile
   const snowRef = useRef<THREE.Points>(null);
   const glowRef = useRef<THREE.Points>(null);
 
@@ -55,25 +55,25 @@ const Atmosphere: React.FC = () => {
     const offset = new Float32Array(snowCount * 3);
     for (let i = 0; i < snowCount; i++) {
       // Wider distribution
-      offset[i * 3] = (Math.random() - 0.5) * 100;
+      offset[i * 3] = (Math.random() - 0.5) * (isMobile ? 60 : 100);
       offset[i * 3 + 1] = Math.random() * 50;
-      offset[i * 3 + 2] = (Math.random() - 0.5) * 100;
+      offset[i * 3 + 2] = (Math.random() - 0.5) * (isMobile ? 60 : 100);
       size[i] = Math.random() * 0.6 + 0.15;
       speed[i] = Math.random() * 1.2 + 0.3; // Slower speed for "slow-mo" feel
     }
     return { size, speed, offset };
   }, []);
 
-  const glowCount = 250; // Increased count
+  const glowCount = isMobile ? 100 : 250; // Significantly reduce glow particles on mobile
   const glowData = useMemo(() => {
     const pos = new Float32Array(glowCount * 3);
     for (let i = 0; i < glowCount; i++) {
-      pos[i * 3] = (Math.random() - 0.5) * 80;
+      pos[i * 3] = (Math.random() - 0.5) * (isMobile ? 50 : 80);
       pos[i * 3 + 1] = Math.random() * 30;
-      pos[i * 3 + 2] = (Math.random() - 0.5) * 80;
+      pos[i * 3 + 2] = (Math.random() - 0.5) * (isMobile ? 50 : 80);
     }
     return pos;
-  }, []);
+  }, [glowCount, isMobile]);
 
   useFrame((state) => {
     const time = state.clock.getElapsedTime();
