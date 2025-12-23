@@ -61,6 +61,12 @@ const HandController: React.FC<HandControllerProps> = ({
     if (!enabled) return;
     let animationFrame: number;
     let isActive = true;
+    let detectionFrameSkip = 0;
+    const FRAME_SKIP_MOBILE = 2; // 移动端每隔 2 帧检测一次，降低 30fps -> 15fps
+
+    const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(
+      navigator.userAgent.toLowerCase()
+    );
 
     async function setupHandTracking() {
       try {
@@ -114,13 +120,13 @@ const HandController: React.FC<HandControllerProps> = ({
         
         try {
           // 移动设备使用更低的分辨率以提高性能
-          const isMobile = /android|webos|iphone|ipad|ipot|blackberry|iemobile|opera mini/i.test(
+          const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(
             navigator.userAgent.toLowerCase()
           );
           
           const videoConstraints = isMobile 
-            ? { width: 240, height: 180, facingMode: "user" }
-            : { width: 320, height: 240, facingMode: "user" };
+            ? { width: 160, height: 120, facingMode: "user" }
+            : { width: 240, height: 180, facingMode: "user" };
           
           const stream = await navigator.mediaDevices.getUserMedia({ 
             video: videoConstraints,
@@ -171,6 +177,15 @@ const HandController: React.FC<HandControllerProps> = ({
 
     async function predictWebcam() {
       if (!isActive || !videoRef.current || !globalHandLandmarker || !canvasRef.current) return;
+      
+      // 移动设备帧跳过：降低检测频率到 15fps
+      if (isMobile) {
+        detectionFrameSkip++;
+        if (detectionFrameSkip % FRAME_SKIP_MOBILE !== 0) {
+          animationFrame = requestAnimationFrame(predictWebcam);
+          return;
+        }
+      }
       
       try {
         if (videoRef.current.readyState >= 2 && cameraStreamReady) {
@@ -395,7 +410,7 @@ const HandController: React.FC<HandControllerProps> = ({
 
   return (
     <div className="hand-tracker-container fixed bottom-8 left-8 z-50 pointer-events-none">
-      <div className="relative w-[150px] h-[112px] bg-black/80 backdrop-blur-3xl rounded-xl border border-white/10 overflow-hidden shadow-2xl">
+      <div className="relative w-[90px] h-[67px] bg-black/80 backdrop-blur-3xl rounded-xl border border-white/10 overflow-hidden shadow-2xl">
         <video 
           ref={videoRef} 
           autoPlay 
@@ -410,8 +425,8 @@ const HandController: React.FC<HandControllerProps> = ({
         />
         <canvas 
           ref={canvasRef} 
-          width={150} 
-          height={112} 
+          width={90} 
+          height={67}
           className="w-full h-full opacity-40 scale-x-[-1]"
         />
         

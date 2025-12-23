@@ -45,7 +45,7 @@ const snowFragmentShader = `
 `;
 
 const Atmosphere: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) => {
-  const snowCount = isMobile ? 2000 : 4500; // Reduce snow particles on mobile
+  const snowCount = isMobile ? 600 : 4500; // Mobile: 大幅减少到 600
   const snowRef = useRef<THREE.Points>(null);
   const glowRef = useRef<THREE.Points>(null);
 
@@ -64,7 +64,7 @@ const Atmosphere: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) => {
     return { size, speed, offset };
   }, []);
 
-  const glowCount = isMobile ? 100 : 250; // Significantly reduce glow particles on mobile
+  const glowCount = isMobile ? 20 : 250; // Mobile: 极度减少到 20
   const glowData = useMemo(() => {
     const pos = new Float32Array(glowCount * 3);
     for (let i = 0; i < glowCount; i++) {

@@ -9,12 +9,13 @@ const BoxGeometry = 'boxGeometry' as any;
 const MeshStandardMaterial = 'meshStandardMaterial' as any;
 
 const GoldenSpirals: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) => {
-  const count = isMobile ? 150 : 400; // Reduce particle count on mobile
+  if (isMobile) return null;
+  const count = 400; // Desktop only
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const dummy = new THREE.Object3D();
 
   const particles = useMemo(() => {
-    return Array.from({ length: count * (isMobile ? 1 : 2) }, (_, i) => {
+    return Array.from({ length: count * 2 }, (_, i) => {
       const ribbonIdx = !isMobile && i < count ? 0 : 1;
       const t = (i % count) / count;
       return { t, ribbonIdx, phase: Math.random() * Math.PI };
@@ -45,9 +46,9 @@ const GoldenSpirals: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) =
   });
 
   return (
-    <InstancedMesh ref={meshRef} args={[undefined, undefined, count * (isMobile ? 1 : 2)]}>
+    <InstancedMesh ref={meshRef} args={[undefined, undefined, count * 2]}>
       <BoxGeometry args={[1, 1, 1]} />
-      <MeshStandardMaterial color="#FFDF00" emissive="#FFA500" emissiveIntensity={isMobile ? 1.5 : 3} />
+      <MeshStandardMaterial color="#FFDF00" emissive="#FFA500" emissiveIntensity={3} />
     </InstancedMesh>
   );
 };

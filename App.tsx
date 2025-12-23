@@ -257,7 +257,8 @@ const App: React.FC = () => {
   const [isPointerActive, setIsPointerActive] = useState(false);
   const [cinematicMode, setCinematicMode] = useState<'IDLE' | 'MESSAGE' | 'LOOPING'>('IDLE');
   
-  const [treeData, setTreeData] = useState<ParticleData[]>(() => generateTreeData(2500));
+  const isMobile = isMobileDevice();
+  const [treeData, setTreeData] = useState<ParticleData[]>(() => generateTreeData(isMobile ? 1200 : 2500));
   
   const orbitRef = useRef<any>(null);
   const rotVel = useRef<number>(0);
@@ -336,7 +337,7 @@ const App: React.FC = () => {
 
   return (
     <div className="w-full h-screen bg-[#020202] relative overflow-hidden">
-      <Canvas shadows dpr={isMobileDevice() ? 1 : [1, 1.5]} gl={{ powerPreference: "high-performance", antialias: !isMobileDevice() }} frameloop="always" >
+      <Canvas shadows={!isMobileDevice()} dpr={isMobileDevice() ? 1 : [1, 1.5]} gl={{ powerPreference: "high-performance", antialias: !isMobileDevice(), precision: isMobileDevice() ? "lowp" : "highp", alpha: true, stencil: false }} frameloop="always" >
         <Suspense fallback={null}>
           <PerspectiveCamera makeDefault position={[0, 8, 30]} fov={45} />
           
@@ -349,7 +350,7 @@ const App: React.FC = () => {
           <Environment preset="lobby" />
           <Stars radius={120} depth={60} count={isMobileDevice() ? 1500 : 3000} factor={4} fade speed={1.2} />
           <AmbientLight intensity={0.2} />
-          <SpotLight position={[0, 40, 0]} angle={0.3} penumbra={1} intensity={2.5} color="#fff4e0" castShadow />
+          {!isMobileDevice() && <SpotLight position={[0, 40, 0]} angle={0.3} penumbra={1} intensity={2.5} color="#fff4e0" castShadow />}
 
           <TreeParticles data={treeData} isExploded={isExploded} onSelectPhoto={handlePhotoSelect} onHoverPhoto={handlePhotoHover} focusedPhotoId={selectedPhoto?.id ?? null} hoveredPhotoId={hoveredPhotoId} />
           

@@ -83,7 +83,7 @@ const rippleFragmentShader = `
 `;
 
 const GroundRipple: React.FC<{ isExploded: boolean; isMobile?: boolean }> = ({ isExploded, isMobile = false }) => {
-  const count = isMobile ? 15000 : 80000;
+  const count = isMobile ? 5000 : 80000; // Mobile: 减少到 5000
   const radius = 29;
   const ref = useRef<THREE.Points>(null);
   

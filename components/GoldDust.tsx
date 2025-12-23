@@ -13,7 +13,7 @@ const FORCE = new THREE.Vector3();
 const SPIRAL = new THREE.Vector3();
 
 const GoldDust: React.FC<{ isExploded: boolean; isMobile?: boolean }> = ({ isExploded, isMobile = false }) => {
-  const count = isMobile ? 1200 : 3500; // Significantly reduced for mobile
+  const count = isMobile ? 300 : 3500; // Mobile: 极度简化
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const data = useMemo(() => generateGoldDustData(count), [count]);
   
