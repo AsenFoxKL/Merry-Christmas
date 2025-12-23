@@ -2,8 +2,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { FilesetResolver, HandLandmarker } 
 from '@mediapipe/tasks-vision';
+
 let globalHandLandmarker: any = null;
 let globalVision: any = null;
+let globalInitInProgress = false;
 
 interface HandControllerProps {
   onSpread: () => void;
@@ -62,51 +64,103 @@ const HandController: React.FC<HandControllerProps> = ({
 
     async function setupHandTracking() {
       try {
-        if (!globalHandLandmarker) {
-          setStatus("Loading AI...");
-          globalVision = await FilesetResolver.forVisionTasks(
-            "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm"
-          );
-          globalHandLandmarker = await HandLandmarker.createFromOptions(globalVision, {
-            baseOptions: {
-              modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`,
-              delegate: "GPU"
-            },
-            runningMode: "VIDEO",
-            numHands: 1
-          });
+        // 防止重复初始化
+        if (globalInitInProgress) {
+          console.log("Init already in progress, skipping...");
+          return;
         }
+        
+        if (!globalHandLandmarker) {
+          globalInitInProgress = true;
+          setStatus("Loading AI...");
+          
+          try {
+            globalVision = await FilesetResolver.forVisionTasks(
+              "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm"
+            );
+          } catch (visionErr) {
+            console.error("Vision file loading error:", visionErr);
+            setStatus("Radar Offline");
+            globalInitInProgress = false;
+            return;
+          }
+
+          try {
+            // 移动设备检测
+            const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(
+              navigator.userAgent.toLowerCase()
+            );
+
+            globalHandLandmarker = await HandLandmarker.createFromOptions(globalVision, {
+              baseOptions: {
+                modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`,
+                delegate: isMobile ? "CPU" : "GPU" // 移动设备使用 CPU 避免兼容性问题
+              },
+              runningMode: "VIDEO",
+              numHands: 1
+            });
+          } catch (modelErr) {
+            console.error("Hand landmarker creation error:", modelErr);
+            setStatus("Radar Offline");
+            globalInitInProgress = false;
+            return;
+          }
+          
+          globalInitInProgress = false;
+        }
+        
         if (!isActive) return;
         setStatus("Radar Online");
         
         try {
+          // 移动设备使用更低的分辨率以提高性能
+          const isMobile = /android|webos|iphone|ipad|ipot|blackberry|iemobile|opera mini/i.test(
+            navigator.userAgent.toLowerCase()
+          );
+          
+          const videoConstraints = isMobile 
+            ? { width: 240, height: 180, facingMode: "user" }
+            : { width: 320, height: 240, facingMode: "user" };
+          
           const stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { width: 320, height: 240, facingMode: "user" } 
+            video: videoConstraints,
+            audio: false
           });
+          
           if (videoRef.current && isActive) {
             videoRef.current.srcObject = stream;
             videoRef.current.onloadedmetadata = () => {
-              cameraStreamReady = true; // 标记流已准备
+              if (!isActive) return;
+              cameraStreamReady = true;
+              
               videoRef.current?.play().catch((playErr) => {
-                // 视频播放失败，静默处理
                 console.warn("Video play error:", playErr);
                 setStatus("Radar Offline");
+                cameraStreamReady = false;
               });
             };
-            videoRef.current.onerror = () => {
+            
+            videoRef.current.onerror = (err) => {
+              console.error("Video element error:", err);
               setStatus("Radar Offline");
+              cameraStreamReady = false;
+            };
+            
+            videoRef.current.onabort = () => {
+              console.warn("Video playback aborted");
+              setStatus("Radar Offline");
+              cameraStreamReady = false;
             };
           }
         } catch (cameraErr) {
-          // 摄像头权限被拒绝或不可用，但应用继续运行
           console.warn("Camera access denied or unavailable:", cameraErr);
           setStatus("Radar Offline");
           cameraStreamReady = false;
-          // 继续运行，不中断应用
         }
       } catch (err) {
         console.error("Hand tracking setup error:", err);
         setStatus("Radar Offline");
+        globalInitInProgress = false;
       }
     }
 
@@ -117,48 +171,69 @@ const HandController: React.FC<HandControllerProps> = ({
 
     async function predictWebcam() {
       if (!isActive || !videoRef.current || !globalHandLandmarker || !canvasRef.current) return;
-      if (videoRef.current.readyState >= 2 && cameraStreamReady) {
-        const startTimeMs = performance.now();
-        const results = globalHandLandmarker.detectForVideo(videoRef.current, startTimeMs);
-        const ctx = canvasRef.current.getContext('2d')!;
-        ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-
-        if (results.landmarks && results.landmarks.length > 0) {
-          handDetectedRef.current = true;
-          const landmarks = results.landmarks[0];
-          processGestures(landmarks);
-          drawSkeleton(ctx, landmarks);
-        } else {
-          // If hand lost, handle pointer persistence
-          const now = Date.now();
-          if (now - lastPointerSeenTime.current > 500) {
-            if (isPointingRef.current) {
-               isPointingRef.current = false;
-               callbacks.current.onPointerToggle(false);
-            }
-            if (isPinchingRef.current) {
-               isPinchingRef.current = false;
-               window.dispatchEvent(new CustomEvent('gesture-pinch-end'));
-            }
+      
+      try {
+        if (videoRef.current.readyState >= 2 && cameraStreamReady) {
+          const startTimeMs = performance.now();
+          
+          // 使用 try-catch 保护手势检测，防止崩溃
+          let results;
+          try {
+            results = globalHandLandmarker.detectForVideo(videoRef.current, startTimeMs);
+          } catch (detectErr) {
+            console.warn("Detection error:", detectErr);
+            animationFrame = requestAnimationFrame(predictWebcam);
+            return;
           }
           
-          if (handDetectedRef.current) {
-            handDetectedRef.current = false;
-            isControllingRef.current = false;
-            camModeStartTime.current = 0;
+          const ctx = canvasRef.current.getContext('2d');
+          if (ctx) {
+            ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+          }
+
+          if (results.landmarks && results.landmarks.length > 0) {
+            handDetectedRef.current = true;
+            const landmarks = results.landmarks[0];
+            processGestures(landmarks);
+            if (ctx) {
+              drawSkeleton(ctx, landmarks);
+            }
+          } else {
+            // If hand lost, handle pointer persistence
+            const now = Date.now();
+            if (now - lastPointerSeenTime.current > 500) {
+              if (isPointingRef.current) {
+                 isPointingRef.current = false;
+                 callbacks.current.onPointerToggle(false);
+              }
+              if (isPinchingRef.current) {
+                 isPinchingRef.current = false;
+                 window.dispatchEvent(new CustomEvent('gesture-pinch-end'));
+              }
+            }
+            
+            if (handDetectedRef.current) {
+              handDetectedRef.current = false;
+              isControllingRef.current = false;
+              camModeStartTime.current = 0;
+            }
+          }
+
+          const now = Date.now();
+          if (now - lastStatusUpdate > 100) {
+            setVisualState({
+              detecting: handDetectedRef.current,
+              mode: isPointingRef.current ? 'pointer' : (isControllingRef.current ? 'cam' : 'idle'),
+              warming: isControllingRef.current && (Date.now() - camModeStartTime.current < 500)
+            });
+            lastStatusUpdate = now;
           }
         }
-
-        const now = Date.now();
-        if (now - lastStatusUpdate > 100) {
-          setVisualState({
-            detecting: handDetectedRef.current,
-            mode: isPointingRef.current ? 'pointer' : (isControllingRef.current ? 'cam' : 'idle'),
-            warming: isControllingRef.current && (Date.now() - camModeStartTime.current < 500)
-          });
-          lastStatusUpdate = now;
-        }
+      } catch (err) {
+        console.error("Webcam prediction error:", err);
+        setStatus("Radar Error");
       }
+      
       animationFrame = requestAnimationFrame(predictWebcam);
     }
 
@@ -293,14 +368,27 @@ const HandController: React.FC<HandControllerProps> = ({
 
     setupHandTracking();
     
-    // 同时启动预测循环，即使摄像头未就绪也要运行（避免阻塞）
-    animationFrame = requestAnimationFrame(predictWebcam);
+    // 启动预测循环，但添加延迟以确保初始化完成
+    const predictStartDelay = setTimeout(() => {
+      if (isActive) {
+        animationFrame = requestAnimationFrame(predictWebcam);
+      }
+    }, 500); // 500ms 延迟允许初始化完成
     
     return () => {
       isActive = false;
+      clearTimeout(predictStartDelay);
       cancelAnimationFrame(animationFrame);
       if (videoRef.current?.srcObject) {
-        (videoRef.current.srcObject as MediaStream).getTracks().forEach(t => t.stop());
+        const stream = videoRef.current.srcObject as MediaStream;
+        stream.getTracks().forEach(t => {
+          try {
+            t.stop();
+          } catch (e) {
+            console.warn("Error stopping track:", e);
+          }
+        });
+        videoRef.current.srcObject = null;
       }
     };
   }, [enabled]);
@@ -308,8 +396,24 @@ const HandController: React.FC<HandControllerProps> = ({
   return (
     <div className="hand-tracker-container fixed bottom-8 left-8 z-50 pointer-events-none">
       <div className="relative w-[150px] h-[112px] bg-black/80 backdrop-blur-3xl rounded-xl border border-white/10 overflow-hidden shadow-2xl">
-        <video ref={videoRef} autoPlay playsInline muted className="hidden" />
-        <canvas ref={canvasRef} width={150} height={112} className="w-full h-full opacity-40 scale-x-[-1]" />
+        <video 
+          ref={videoRef} 
+          autoPlay 
+          playsInline 
+          muted 
+          className="hidden"
+          crossOrigin="anonymous"
+          onError={(e) => {
+            console.error("Video element error event:", e);
+            setStatus("Radar Offline");
+          }}
+        />
+        <canvas 
+          ref={canvasRef} 
+          width={150} 
+          height={112} 
+          className="w-full h-full opacity-40 scale-x-[-1]"
+        />
         
         <div className="absolute top-2 left-3 flex items-center gap-1.5">
           <div className={`w-1.5 h-1.5 rounded-full ${visualState.detecting ? (visualState.mode === 'cam' ? 'bg-cyan-400 animate-ping' : (visualState.mode === 'pointer' ? 'bg-pink-400 animate-pulse' : 'bg-green-400')) : 'bg-yellow-500'}`} />
