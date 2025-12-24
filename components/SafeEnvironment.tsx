@@ -8,7 +8,7 @@ import { Environment } from '@react-three/drei';
  * 保持显示效果一致，同时避免首屏因 HDR 拉取失败而报错阻塞
  */
 const SafeEnvironment: React.FC = () => {
-  const baseUrl = (import.meta as any)?.env?.BASE_URL || '/';
+  const baseUrl = import.meta.env.BASE_URL;
   const localEnv = `${baseUrl}assets/env/lobby.hdr`;
   const [useLocal, setUseLocal] = useState<boolean>(true);
 

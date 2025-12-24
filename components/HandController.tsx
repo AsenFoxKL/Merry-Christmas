@@ -81,7 +81,7 @@ const HandController: React.FC<HandControllerProps> = ({
           setStatus("Loading AI...");
           
           try {
-            const baseUrl = (import.meta as any)?.env?.BASE_URL || "/";
+            const baseUrl = import.meta.env.BASE_URL;
             const localWasmPath = `${baseUrl}assets/mediapipe/wasm`;
             try {
               globalVision = await FilesetResolver.forVisionTasks(localWasmPath);
@@ -103,7 +103,7 @@ const HandController: React.FC<HandControllerProps> = ({
               navigator.userAgent.toLowerCase()
             );
 
-            const baseUrl = (import.meta as any)?.env?.BASE_URL || "/";
+            const baseUrl = import.meta.env.BASE_URL;
             const localModelPath = `${baseUrl}assets/mediapipe/models/hand_landmarker.task`;
             let modelAssetPath = localModelPath;
             try {
