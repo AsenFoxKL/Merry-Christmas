@@ -194,7 +194,13 @@ const HandController: React.FC<HandControllerProps> = ({
     let cameraStreamReady = false;
 
     async function predictWebcam() {
-      if (!isActive || !videoRef.current || !globalHandLandmarker || !canvasRef.current) return;
+      if (!isActive) return;
+
+      // Keep the loop alive until everything is ready (first load on slow networks could be >500ms)
+      if (!videoRef.current || !canvasRef.current || !globalHandLandmarker) {
+        animationFrame = requestAnimationFrame(predictWebcam);
+        return;
+      }
       
       // 移动设备帧跳过：降低检测频率到 15fps
       if (isMobile) {
@@ -399,18 +405,17 @@ const HandController: React.FC<HandControllerProps> = ({
       });
     }
 
-    setupHandTracking();
-    
-    // 启动预测循环，但添加延迟以确保初始化完成
-    const predictStartDelay = setTimeout(() => {
-      if (isActive) {
-        animationFrame = requestAnimationFrame(predictWebcam);
-      }
-    }, 500); // 500ms 延迟允许初始化完成
+    setupHandTracking()
+      .catch((err) => console.error("Setup hand tracking failed:", err))
+      .finally(() => {
+        // Start the prediction loop immediately; internal guards will wait for readiness
+        if (isActive) {
+          animationFrame = requestAnimationFrame(predictWebcam);
+        }
+      });
     
     return () => {
       isActive = false;
-      clearTimeout(predictStartDelay);
       cancelAnimationFrame(animationFrame);
       if (videoRef.current?.srcObject) {
         const stream = videoRef.current.srcObject as MediaStream;
