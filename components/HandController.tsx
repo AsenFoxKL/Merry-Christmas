@@ -81,9 +81,15 @@ const HandController: React.FC<HandControllerProps> = ({
           setStatus("Loading AI...");
           
           try {
-            globalVision = await FilesetResolver.forVisionTasks(
-              "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm"
-            );
+            const baseUrl = (import.meta as any)?.env?.BASE_URL || "/";
+            const localWasmPath = `${baseUrl}assets/mediapipe/wasm`;
+            try {
+              globalVision = await FilesetResolver.forVisionTasks(localWasmPath);
+            } catch (localErr) {
+              globalVision = await FilesetResolver.forVisionTasks(
+                "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm"
+              );
+            }
           } catch (visionErr) {
             console.error("Vision file loading error:", visionErr);
             setStatus("Radar Offline");
@@ -97,9 +103,21 @@ const HandController: React.FC<HandControllerProps> = ({
               navigator.userAgent.toLowerCase()
             );
 
+            const baseUrl = (import.meta as any)?.env?.BASE_URL || "/";
+            const localModelPath = `${baseUrl}assets/mediapipe/models/hand_landmarker.task`;
+            let modelAssetPath = localModelPath;
+            try {
+              // 先尝试本地模型（建议将 hand_landmarker.task 放在 public/assets/mediapipe/models/ 下）
+              // 简单 HEAD 请求验证可达性
+              await fetch(modelAssetPath, { method: 'HEAD' });
+            } catch {
+              // 回退到公共CDN（jsDelivr 在国内通常可达）
+              modelAssetPath = `https://cdn.jsdelivr.net/gh/google/mediapipe@0.10.0/mediapipe/tasks/web/vision/hand_landmarker/hand_landmarker.task`;
+            }
+
             globalHandLandmarker = await HandLandmarker.createFromOptions(globalVision, {
               baseOptions: {
-                modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`,
+                modelAssetPath,
                 delegate: isMobile ? "CPU" : "GPU" // 移动设备使用 CPU 避免兼容性问题
               },
               runningMode: "VIDEO",

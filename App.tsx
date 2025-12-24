@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, Suspense, useRef, useCallback, useEffect } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, Environment, PerspectiveCamera, Stars } from '@react-three/drei';
+import { OrbitControls, PerspectiveCamera, Stars } from '@react-three/drei';
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import * as THREE from 'three';
 
@@ -21,6 +21,7 @@ import FocusPhoto from './components/FocusPhoto';
 import HandController from './components/HandController';
 import Overlay from './components/Overlay';
 import MusicPlayer from './components/MusicPlayer';
+import SafeEnvironment from './components/SafeEnvironment';
 import { generateTreeData } from './utils';
 import { ParticleData, ParticleType } from './types';
 import { useAudioManager, Track } from './hooks/useAudioManager';
@@ -338,7 +339,6 @@ const App: React.FC = () => {
   return (
     <div className="w-full h-screen bg-[#020202] relative overflow-hidden">
       <Canvas shadows={!isMobileDevice()} dpr={isMobileDevice() ? 1 : [1, 1.5]} gl={{ powerPreference: "high-performance", antialias: !isMobileDevice(), precision: isMobileDevice() ? "lowp" : "highp", alpha: true, stencil: false }} frameloop="always" >
-        <Suspense fallback={null}>
           <PerspectiveCamera makeDefault position={[0, 8, 30]} fov={45} />
           
           <OrbitControls ref={orbitRef} enabled={cinematicMode === 'IDLE'} enableRotate={!selectedPhoto && cinematicMode === 'IDLE'} enableZoom={!selectedPhoto && cinematicMode === 'IDLE'} enablePan={false} minDistance={8} maxDistance={80} target={[0, 7.5, 0]} autoRotateSpeed={0.5} enableDamping={true} />
@@ -347,7 +347,10 @@ const App: React.FC = () => {
           
           <GestureRaycaster pointerPos={isPointerActive ? pointerPos : null} onPinchStart={handlePinchStart} onPinchEnd={handlePinchEnd} onHover={handlePhotoHover} />
           
-          <Environment preset="lobby" />
+          {/* 环境贴图单独置于 Suspense，避免阻塞主体渲染；本地失败自动回退预设 */}
+          <Suspense fallback={null}>
+            <SafeEnvironment />
+          </Suspense>
           <Stars radius={120} depth={60} count={isMobileDevice() ? 1500 : 3000} factor={4} fade speed={1.2} />
           <AmbientLight intensity={0.2} />
           {!isMobileDevice() && <SpotLight position={[0, 40, 0]} angle={0.3} penumbra={1} intensity={2.5} color="#fff4e0" castShadow />}
@@ -370,7 +373,6 @@ const App: React.FC = () => {
               <Vignette eskil={false} offset={0.2} darkness={0.9} />
             </EffectComposer>
           )}
-        </Suspense>
       </Canvas>
 
       <VisualCursor active={isPointerActive} pos={pointerPos} />
